@@ -1,21 +1,21 @@
-Mail-in-a-Box Security Guide
+S5 Mail Security Guide
 ============================
 
-Mail-in-a-Box turns a fresh Ubuntu 22.04 LTS 64-bit machine into a mail server appliance by installing and configuring various components.
+S5 Mail turns a fresh Ubuntu 22.04 LTS 64-bit machine into a mail server appliance by installing and configuring various components.
 
-This page documents the security posture of Mail-in-a-Box. The term “box” is used below to mean a configured Mail-in-a-Box.
+This page documents the security posture of S5 Mail. The term “box” is used below to mean a configured S5 Mail.
 
 Reporting Security Vulnerabilities
 ----------------------------------
 
-Security vulnerabilities should be reported to the [project's maintainer](https://joshdata.me) via email.
+Security vulnerabilities should be reported to the [project's maintainer](https://wtarit.me/) via email.
 
 Threat Model
 ------------
 
 Nothing is perfectly secure, and an adversary with sufficient resources can always penetrate a system.
 
-The primary goal of Mail-in-a-Box is to make deploying a good mail server easy, so we balance ― as everyone does ― privacy and security concerns with the practicality of actually deploying the system. That means we make certain assumptions about adversaries. We assume that adversaries . . .
+The primary goal of S5 Mail is to make deploying a good mail server easy, so we balance ― as everyone does ― privacy and security concerns with the practicality of actually deploying the system. That means we make certain assumptions about adversaries. We assume that adversaries . . .
 
 * Do not have physical access to the box (i.e., we do not aim to protect the box from physical access).
 * Have not been given Unix accounts on the box (i.e., we assume all users with shell access are trusted).
@@ -58,7 +58,7 @@ The passwords for mail users are stored on disk using the [SHA512-CRYPT](http://
 
 ### Console access
 
-Console access (e.g. via SSH) is configured by the system image used to create the box, typically from by a cloud virtual machine provider (e.g. Digital Ocean). Mail-in-a-Box does not set any console access settings, although it will warn the administrator in the System Status Checks if password-based login is turned on.
+Console access (e.g. via SSH) is configured by the system image used to create the box, typically from by a cloud virtual machine provider (e.g. Digital Ocean). S5 Mail does not set any console access settings, although it will warn the administrator in the System Status Checks if password-based login is turned on.
 
 The [setup guide video](https://mailinabox.email/) explains how to verify the host key fingerprint on first login.
 
@@ -68,7 +68,7 @@ If DNSSEC is enabled at the box's domain name's registrar, the SSHFP record that
 
 `fail2ban` provides some protection from brute-force login attacks (repeated logins that guess account passwords) by blocking offending IP addresses at the network level.
 
-The following services are protected: SSH, IMAP (dovecot), SMTP submission (postfix), webmail (roundcube), Nextcloud/CalDAV/CardDAV (over HTTP), and the Mail-in-a-Box control panel (over HTTP).
+The following services are protected: SSH, IMAP (dovecot), SMTP submission (postfix), webmail (roundcube), Nextcloud/CalDAV/CardDAV (over HTTP), and the S5 Mail control panel (over HTTP).
 
 Some other services running on the box may be missing fail2ban filters.
 
