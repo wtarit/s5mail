@@ -67,6 +67,7 @@ test("creates and removes an alias", async ({ page }) => {
 
 test("creates and removes a raw custom DNS record", async ({ page }) => {
   await visitPanel(page, "custom_dns", "Custom DNS");
+  await expect.poll(() => page.locator("#customdnsZone").inputValue()).not.toBe("");
   await page.locator("#customdnsQname").fill(suffix);
   await page.locator("#customdnsType").selectOption("TXT");
   await page.locator("#customdnsValue").fill("literal browser test");
