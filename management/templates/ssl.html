@@ -11,7 +11,7 @@
 <h3>Provision certificates</h3>
 
 <div id="ssl_provision_p" style="display: none; margin-top: 1.5em">
-  <button onclick='return provision_tls_cert();' class='btn btn-primary' style="float: left; margin: 0 1.5em 1em 0;">Provision</button>
+  <button data-tls-action="provision" class='btn btn-primary' style="float: left; margin: 0 1.5em 1em 0;">Provision</button>
   <p>A TLS certificate can be automatically provisioned from <a href="https://letsencrypt.org/" target="_blank">Let&rsquo;s Encrypt</a>, a free TLS certificate provider, for:<br>
   <span class="text-primary"></span></p>
 </div>
@@ -44,13 +44,13 @@
 
 <p>Which domain are you getting a certificate for?</p>
 
-<p><select id="ssldomain" onchange="show_csr()" class="form-control" style="width: auto"></select></p>
+<p><select id="ssldomain" class="form-control" style="width: auto"></select></p>
 
 <p>(A multi-domain or wildcard certificate will be automatically applied to any domains it is valid for besides the one you choose above.)</p>
 
 <p>What country are you in? This is required by some TLS certificate providers. You may leave this blank if you know your TLS certificate provider doesn't require it.</p>
 
-<p><select id="sslcc" onchange="show_csr()" class="form-control" style="width: auto">
+<p><select id="sslcc" class="form-control" style="width: auto">
 	<option value="">(Select)</option>
 	{% for code, name in csr_country_codes %}
 		<option value="{{code}}">{{name}}</option>
@@ -74,163 +74,5 @@
 
   <p>After you paste in the information, click the install button.</p>
 
-  <button class="btn-primary" onclick="install_cert()">Install</button>
+  <button class="btn-primary" data-tls-action="install">Install</button>
 </div>
-
-<script>
-function show_tls(keep_provisioning_shown) {
- api(
-    "/ssl/status",
-    "GET",
-    {
-    },
-    function(res) {
-      // provisioning status
-
-      if (!keep_provisioning_shown)
-        $('#ssl_provision').toggle(res.can_provision.length > 0)
-
-      $('#ssl_provision_p').toggle(res.can_provision.length > 0);
-      if (res.can_provision.length > 0)
-          $('#ssl_provision_p span').text(res.can_provision.join(", "));
-
-      // certificate status
-      var domains = res.status;
-      var tb = $('#ssl_domains tbody');
-      tb.text('');
-      $('#ssldomain').html('<option value="">(select)</option>');
-      $('#ssl_domains').show();
-      for (var i = 0; i < domains.length; i++) {
-        var row = $("<tr><th scope='row' class='domain'><a href=''></a></th><td class='status'></td> <td class='actions'><a href='#' onclick='return ssl_install(this);' class='btn btn-xs'>Install Certificate</a></td></tr>");
-        tb.append(row);
-        row.attr('data-domain', domains[i].domain);
-        row.find('.domain a').text(domains[i].domain);
-        row.find('.domain a').attr('href', 'https://' + domains[i].domain);
-        if (domains[i].status == "not-applicable") {
-          domains[i].status = "muted"; // text-muted css class
-          row.find('.actions a').remove(); // no actions applicable
-        }
-        row.addClass("text-" + domains[i].status);
-        row.find('.status').text(domains[i].text);
-        if (domains[i].status == "success") {
-          row.find('.actions a').addClass('btn-default').text('Replace Certificate');
-        } else {
-          row.find('.actions a').addClass('btn-primary').text('Install Certificate');
-        }
-
-        $('#ssldomain').append($('<option>').text(domains[i].domain));
-      }
-    });
-}
-
-function ssl_install(elem) {
-  var domain = $(elem).parents('tr').attr('data-domain');
-  $('#ssldomain').val(domain);
-  show_csr();
-  $('html, body').animate({ scrollTop: $('#ssl_install_header').offset().top - $('.navbar-fixed-top').height() - 20 })
-  return false;
-}
-
-function show_csr() {
- // Can't show a CSR until both inputs are entered.
- if ($('#ssldomain').val() == "") return;
- if ($('#sslcc').val() == "") return;
-
- // Scroll to it and fetch.
- $('#csr_info').slideDown();
- $('#ssl_csr').text('Loading...');
- api(
-    "/ssl/csr/" + $('#ssldomain').val(),
-    "POST",
-    {
-        countrycode: $('#sslcc').val()
-    },
-    function(data) {
-      $('#ssl_csr').text(data);
-    });
-}
-
-function install_cert() {
- api(
-    "/ssl/install",
-    "POST",
-    {
-      domain: $('#ssldomain').val(),
-      cert: $('#ssl_paste_cert').val(),
-      chain: $('#ssl_paste_chain').val()
-    },
-    function(status) {
-      if (/^OK($|\n)/.test(status)) {
-        console.log(status)
-        show_modal_error("TLS Certificate Installation", "Certificate has been installed. Check that you have no connection problems to the domain.", function() { show_ssl(); $('#csr_info').slideUp(); });
-      } else {
-        show_modal_error("TLS Certificate Installation", status);
-      }
-    });
-}
-
-function provision_tls_cert() {
-  // Automatically provision any certs.
-  $('#ssl_provision_p .btn').attr('disabled', '1'); // prevent double-clicks
-  api(
-    "/ssl/provision",
-    "POST",
-    { },
-    function(status) {
-      // Clear last attempt.
-      $('#ssl_provision_result').text("");
-      may_reenable_provision_button = true;
-
-      // Nothing was done. There might also be problem domains, but we've already displayed those.
-      if (status.requests.length == 0) {
-        show_modal_error("TLS Certificate Provisioning", "There were no domain names to provision certificates for.");
-        // don't return - haven't re-enabled the provision button
-      }
-
-      // Each provisioning API call returns zero or more "requests" which represent
-      // a request to Let's Encrypt for a single certificate. Normally there is just
-      // one request (for a single multi-domain certificate).
-      for (var i = 0; i < status.requests.length; i++) {
-        var r = status.requests[i];
-
-        if (r.result == "skipped") {
-          // not interested --- this domain wasn't in the table
-          // to begin with
-          continue;
-        }
-
-        // create an HTML block to display the results of this request
-        var n = $("<div><h4/><p/></div>");
-        $('#ssl_provision_result').append(n);
-
-        // plain log line
-        if (typeof r === "string") {
-          n.find("p").text(r);
-          continue;
-        }
-
-        // show a header only to disambiguate request blocks
-        if (status.requests.length > 0)
-          n.find("h4").text(r.domains.join(", "));
-
-        if (r.result == "error") {
-          n.find("p").addClass("text-danger").text(r.message);
-
-        } else if (r.result == "installed") {
-          n.find("p").addClass("text-success").text("The TLS certificate was provisioned and installed.");
-          setTimeout("show_tls(true)", 1); // update main table of certificate statuses, call with arg keep_provisioning_shown true so that we don't clear what we just outputted
-
-        }
-
-        // display the detailed log info in case of problems
-        var trace = $("<div class='small text-muted' style='margin-top: 1.5em'>Log:</div>");
-        n.append(trace);
-        for (var j = 0; j < r.log.length; j++)
-          trace.append($("<div/>").text(r.log[j]));
-      }
-
-      if (may_reenable_provision_button)
-        $('#ssl_provision_p .btn').removeAttr("disabled");
-    });
-}
-</script>
