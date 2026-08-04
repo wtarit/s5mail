@@ -41,29 +41,29 @@ if [ ! -f "$STORAGE_ROOT/backup/secret_key.txt" ]; then
 fi
 
 
-# Download jQuery and Bootstrap local files
+# Install the management UI and Bootstrap styles.
 
 # Make sure we have the directory to save to.
 assets_dir=$inst_dir/vendor/assets
 rm -rf $assets_dir
 mkdir -p $assets_dir
 
-# jQuery CDN URL
-jquery_version=2.2.4
-jquery_url=https://code.jquery.com
-
-# Get jQuery
-wget_verify $jquery_url/jquery-$jquery_version.min.js 69bb69e25ca7d5ef0935317584e6153f3fd9a88c $assets_dir/jquery.min.js
-
-# Bootstrap CDN URL
+# Bootstrap CSS and fonts retain the existing visual design. The management UI
+# does not use Bootstrap JavaScript.
 bootstrap_version=3.4.1
 bootstrap_url=https://github.com/twbs/bootstrap/releases/download/v$bootstrap_version/bootstrap-$bootstrap_version-dist.zip
 
 # Get Bootstrap
 wget_verify $bootstrap_url 0bb64c67c2552014d48ab4db81c2e8c01781f580 /tmp/bootstrap.zip
-unzip -q /tmp/bootstrap.zip -d $assets_dir
-mv $assets_dir/bootstrap-$bootstrap_version-dist $assets_dir/bootstrap
+unzip -q /tmp/bootstrap.zip \
+	"bootstrap-$bootstrap_version-dist/css/*" \
+	"bootstrap-$bootstrap_version-dist/fonts/*" \
+	-d $assets_dir
+mv "$assets_dir/bootstrap-$bootstrap_version-dist" "$assets_dir/bootstrap"
 rm -f /tmp/bootstrap.zip
+
+# These source modules are served directly without a Node build step.
+cp -R management/assets/. "$assets_dir/"
 
 # Create an init script to start the management daemon and keep it
 # running after a reboot.
