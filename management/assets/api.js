@@ -44,16 +44,19 @@ async function parseResponse(response) {
 }
 
 export async function api(url, method, data, callback, callbackError, extraHeaders = {}) {
-  const headers = new Headers(extraHeaders);
-  headers.set("X-Requested-With", "XMLHttpRequest");
-  const credentials = getCredentials();
-  if (credentials)
-    headers.set(
-      "Authorization",
-      `Basic ${btoa(`${credentials.username}:${credentials.session_key}`)}`,
-    );
+  let response;
+  let parsed;
+  let requestError;
   beginRequest();
   try {
+    const headers = new Headers(extraHeaders);
+    headers.set("X-Requested-With", "XMLHttpRequest");
+    const credentials = getCredentials();
+    if (credentials)
+      headers.set(
+        "Authorization",
+        `Basic ${btoa(`${credentials.username}:${credentials.session_key}`)}`,
+      );
     let requestUrl = `/admin${url}`;
     let body;
     if (method === "GET" && data && typeof data !== "string") {
@@ -66,28 +69,33 @@ export async function api(url, method, data, callback, callbackError, extraHeade
       cache: "no-store",
     };
     if (body !== undefined) options.body = body;
-    const response = await fetch(requestUrl, options);
-    const parsed = await parseResponse(response);
-    if (response.status === 403) {
-      const panel = getCurrentPanel();
-      clearCredentials();
-      showPanel("login");
-      document.dispatchEvent(new CustomEvent("miab:credentials-changed"));
-      setSwitchBackPanel(panel);
-      return;
-    }
-    if (!response.ok) {
-      if (callbackError) callbackError(parsed, response);
-      else showModalError("Error", "Something went wrong, sorry.");
-      return;
-    }
-    if (parsed?.status === "error") showModalError("Error", parsed.message);
-    else callback?.(parsed);
+    response = await fetch(requestUrl, options);
+    if (response.status !== 403) parsed = await parseResponse(response);
   } catch (error) {
-    if (callbackError) callbackError(String(error), { status: 0 });
-    else showModalError("Error", "Something went wrong, sorry.");
+    requestError = error;
   } finally {
     endRequest();
   }
+
+  if (requestError) {
+    if (callbackError) callbackError(String(requestError), { status: 0 });
+    else showModalError("Error", "Something went wrong, sorry.");
+    return false;
+  }
+  if (response.status === 403) {
+    const panel = getCurrentPanel();
+    clearCredentials();
+    showPanel("login");
+    document.dispatchEvent(new CustomEvent("miab:credentials-changed"));
+    setSwitchBackPanel(panel);
+    return false;
+  }
+  if (!response.ok) {
+    if (callbackError) callbackError(parsed, response);
+    else showModalError("Error", "Something went wrong, sorry.");
+    return false;
+  }
+  if (parsed?.status === "error") showModalError("Error", parsed.message);
+  else callback?.(parsed);
   return false;
 }

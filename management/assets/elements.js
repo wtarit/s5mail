@@ -21,6 +21,8 @@ export function preformatted(text) {
 
 export function setVisible(element, visible) {
   element.hidden = !visible;
+  if (visible) element.style.removeProperty("display");
+  else element.style.setProperty("display", "none", "important");
 }
 
 export function setVisibleAll(selector, visible, root = document) {

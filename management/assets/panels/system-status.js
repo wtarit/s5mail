@@ -120,11 +120,7 @@ function confirm_reboot() {
   show_modal_confirm(
     "Reboot",
     create_element("div", {}, [
-      create_element("p", {}, [
-        "This will reboot your Mail-in-a-Box ",
-        create_element("code", { textContent: "{{hostname}}" }),
-        ".",
-      ]),
+      create_element("p", { textContent: "This will reboot your Mail-in-a-Box." }),
       create_element("p", {
         textContent:
           "Until the machine is fully restarted, users cannot send or receive email and you cannot connect to this control panel or SSH. The reboot cannot be cancelled.",

@@ -9,6 +9,10 @@ function openDropdown(toggle) {
   toggle.setAttribute("aria-expanded", "true");
 }
 
+function closeDropdowns() {
+  document.querySelectorAll("[data-dropdown].open > [data-dropdown-toggle]").forEach(closeDropdown);
+}
+
 export function initializeNavigation() {
   const collapse = document.querySelector(".navbar-collapse");
   const collapseToggle = document.querySelector("[data-collapse-toggle]");
@@ -33,10 +37,8 @@ export function initializeNavigation() {
     });
   });
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("[data-dropdown]"))
-      document
-        .querySelectorAll("[data-dropdown].open > [data-dropdown-toggle]")
-        .forEach(closeDropdown);
+    if (!event.target.closest("[data-dropdown]") || event.target.closest(".dropdown-menu a"))
+      closeDropdowns();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;

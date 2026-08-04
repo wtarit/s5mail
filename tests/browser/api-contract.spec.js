@@ -64,3 +64,24 @@ test("quota failures display the API response", async ({ page }) => {
   await page.locator("#global_modal .btn-danger").click();
   await expect(page.locator("#global_modal")).toContainText("invalid quota");
 });
+
+test("application callback failures are not treated as request failures", async ({ page }) => {
+  await login(page);
+  await page.route("**/admin/test-callback", (route) =>
+    route.fulfill({ status: 200, contentType: "text/plain", body: "ok" }),
+  );
+
+  const message = await page.evaluate(async () => {
+    const { api } = await import("/admin/assets/api.js");
+    try {
+      await api("/test-callback", "GET", {}, () => {
+        throw new Error("panel callback failed");
+      });
+    } catch (error) {
+      return error.message;
+    }
+    return null;
+  });
+
+  expect(message).toBe("panel callback failed");
+});

@@ -23,6 +23,7 @@ test("system dropdown opens and navigates", async ({ page }) => {
   await expect(statusLink).toBeFocused();
   await statusLink.press("Enter");
   await expect(page.locator("#panel_system_status")).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
 test("mobile navbar toggles", async ({ page }, testInfo) => {

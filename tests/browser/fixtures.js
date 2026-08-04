@@ -2,7 +2,6 @@ import { expect, test as base } from "@playwright/test";
 
 export const email = process.env.MIAB_E2E_EMAIL;
 export const password = process.env.MIAB_E2E_PASSWORD;
-export const configured = Boolean(process.env.MIAB_E2E_URL && email && password);
 
 export async function login(page) {
   await page.goto("/admin/");
@@ -32,13 +31,6 @@ export function expectConsoleError(page, text) {
 }
 
 export const test = base.extend({
-  configuredEnvironment: [
-    async ({ browserName: _browserName }, use, testInfo) => {
-      testInfo.skip(!configured, "Set MIAB_E2E_URL, MIAB_E2E_EMAIL, and MIAB_E2E_PASSWORD.");
-      await use();
-    },
-    { auto: true },
-  ],
   page: async ({ page }, use, testInfo) => {
     const consoleErrors = [];
     const failedRequests = [];
