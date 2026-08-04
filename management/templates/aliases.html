@@ -244,7 +244,7 @@ function do_add_alias() {
     },
     function(r) {
       // Responses are multiple lines of pre-formatted text.
-      show_modal_error(title, $("<pre/>").text(r));
+      show_modal_error(title, $("<pre/>").text(r).get(0));
       show_aliases()
       aliases_reset_form();
     },
@@ -307,7 +307,7 @@ function aliases_remove(elem) {
         },
         function(r) {
           // Responses are multiple lines of pre-formatted text.
-          show_modal_error("Remove Alias", $("<pre/>").text(r));
+          show_modal_error("Remove Alias", $("<pre/>").text(r).get(0));
           show_aliases();
         });
     });

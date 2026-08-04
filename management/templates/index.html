@@ -240,6 +240,15 @@
 var global_modal_state = null;
 var global_modal_funcs = null;
 
+function create_element(tag, properties, children) {
+  var element = document.createElement(tag);
+  Object.assign(element, properties || {});
+  (children || []).forEach(function(child) {
+    element.append(child);
+  });
+  return element;
+}
+
 $(function() {
   $('#global_modal').on('shown.bs.modal', function (e) {
     // set focus to first input in the global modal's body
@@ -264,14 +273,18 @@ $(function() {
 })
 
 function show_modal_error(title, message, callback) {
-  $('#global_modal h4').text(title);
-  $('#global_modal .modal-body').html("<p/>");
-  if (typeof question == 'string') {
-    $('#global_modal p').text(message);
-    $('#global_modal .modal-dialog').addClass("modal-sm");
+  document.querySelector('#global_modal h4').textContent = title;
+  var body = document.querySelector('#global_modal .modal-body');
+  if (typeof message == 'string') {
+    var paragraph = document.createElement('p');
+    paragraph.textContent = message;
+    body.replaceChildren(paragraph);
+    document.querySelector('#global_modal .modal-dialog').classList.add("modal-sm");
+  } else if (message instanceof Node) {
+    body.replaceChildren(message);
+    document.querySelector('#global_modal .modal-dialog').classList.remove("modal-sm");
   } else {
-    $('#global_modal p').html("").append(message);
-    $('#global_modal .modal-dialog').removeClass("modal-sm");
+    throw new TypeError("Modal content must be a string or DOM node.");
   }
   $('#global_modal .btn-default').show().text("OK");
   $('#global_modal .btn-danger').hide();
@@ -282,14 +295,18 @@ function show_modal_error(title, message, callback) {
 }
 
 function show_modal_confirm(title, question, verb, yes_callback, cancel_callback) {
-  $('#global_modal h4').text(title);
+  document.querySelector('#global_modal h4').textContent = title;
+  var body = document.querySelector('#global_modal .modal-body');
   if (typeof question == 'string') {
-    $('#global_modal .modal-dialog').addClass("modal-sm");
-    $('#global_modal .modal-body').html("<p/>");
-    $('#global_modal p').text(question);
+    document.querySelector('#global_modal .modal-dialog').classList.add("modal-sm");
+    var paragraph = document.createElement('p');
+    paragraph.textContent = question;
+    body.replaceChildren(paragraph);
+  } else if (question instanceof Node) {
+    document.querySelector('#global_modal .modal-dialog').classList.remove("modal-sm");
+    body.replaceChildren(question);
   } else {
-    $('#global_modal .modal-dialog').removeClass("modal-sm");
-    $('#global_modal .modal-body').html("").append(question);
+    throw new TypeError("Modal content must be a string or DOM node.");
   }
   if (typeof verb == 'string') {
     $('#global_modal .btn-default').show().text("Cancel");

@@ -27,10 +27,15 @@ export async function openMobileNavigation(page) {
   if (await toggle.isVisible()) await toggle.click();
 }
 
+export function expectConsoleError(page, text) {
+  page.__miabExpectedConsoleErrors.push(text);
+}
+
 export const test = base.extend({
   page: async ({ page }, use, testInfo) => {
     const consoleErrors = [];
     const failedRequests = [];
+    page.__miabExpectedConsoleErrors = [];
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
@@ -44,7 +49,10 @@ export const test = base.extend({
         contentType: "text/plain",
       });
     }
-    expect.soft(consoleErrors, "unexpected console errors").toEqual([]);
+    const unexpectedConsoleErrors = consoleErrors.filter(
+      (error) => !page.__miabExpectedConsoleErrors.some((expected) => error.includes(expected)),
+    );
+    expect.soft(unexpectedConsoleErrors, "unexpected console errors").toEqual([]);
     expect.soft(failedRequests, "unexpected failed requests").toEqual([]);
   },
 });

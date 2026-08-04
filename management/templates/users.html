@@ -237,7 +237,7 @@ function do_add_user() {
     },
     function(r) {
       // Responses are multiple lines of pre-formatted text.
-      show_modal_error("Add User", $("<pre/>").text(r));
+      show_modal_error("Add User", $("<pre/>").text(r).get(0));
       show_users()
     },
     function(r) {
@@ -249,13 +249,20 @@ function do_add_user() {
 function users_set_password(elem) {
   var email = $(elem).parents('tr').attr('data-email');
 
-  var yourpw = "";
+  var content = create_element("div", {}, [
+    create_element("p", {}, ["Set a new password for ", create_element("b", {}, [email]), "?"]),
+    create_element("p", {}, [
+      create_element("label", { htmlFor: "users_set_password_pw", textContent: "New Password:", style: "display: block; font-weight: normal" }),
+      create_element("input", { type: "password", id: "users_set_password_pw" })
+    ]),
+    create_element("p", {}, [create_element("small", { textContent: "Passwords must be at least eight characters and may not contain spaces." })])
+  ]);
   if (api_credentials != null && email == api_credentials.username)
-    yourpw = "<p class='text-danger'>If you change your own password, you will be logged out of this control panel and will need to log in again.</p>";
+    content.append(create_element("p", { className: "text-danger", textContent: "If you change your own password, you will be logged out of this control panel and will need to log in again." }));
 
   show_modal_confirm(
     "Set Password",
-    $("<p>Set a new password for <b>" + email + "</b>?</p> <p><label for='users_set_password_pw' style='display: block; font-weight: normal'>New Password:</label><input type='password' id='users_set_password_pw'></p><p><small>Passwords must be at least eight characters and may not contain spaces.</small>" + yourpw + "</p>"),
+    content,
     "Set Password",
     function() {
       api(
@@ -267,7 +274,7 @@ function users_set_password(elem) {
         },
         function(r) {
           // Responses are multiple lines of pre-formatted text.
-          show_modal_error("Set Password", $("<pre/>").text(r));
+          show_modal_error("Set Password", $("<pre/>").text(r).get(0));
         },
         function(r) {
           show_modal_error("Set Password", r);
@@ -281,12 +288,12 @@ function users_set_quota(elem) {
 
     show_modal_confirm(
         "Set Quota",
-        $("<p>Set quota for <b>" + email + "</b>?</p>" +
-            "<p>" +
-            "<label for='users_set_quota' style='display: block; font-weight: normal'>Quota:</label>" +
-            "<input type='text' id='users_set_quota' value='" + quota + "'></p>" +
-            "<p><small>Quotas may not contain any spaces or commas.  Suffixes of G (gigabytes) and M (megabytes) are allowed.</small></p>" +
-            "<p><small>For unlimited storage enter 0 (zero)</small></p>"),
+        create_element("div", {}, [
+          create_element("p", {}, ["Set quota for ", create_element("b", {}, [email]), "?"]),
+          create_element("p", {}, [create_element("label", { htmlFor: "users_set_quota", textContent: "Quota:", style: "display: block; font-weight: normal" }), create_element("input", { type: "text", id: "users_set_quota", value: quota })]),
+          create_element("p", {}, [create_element("small", { textContent: "Quotas may not contain spaces or commas. Suffixes of G and M are allowed." })]),
+          create_element("p", {}, [create_element("small", { textContent: "For unlimited storage enter 0 (zero)." })])
+        ]),
         "Set Quota",
         function() {
             api(
@@ -316,7 +323,7 @@ function users_remove(elem) {
 
   show_modal_confirm(
     "Archive User",
-    $("<p>Are you sure you want to archive <b>" + email + "</b>?</p> <p>The user's mailboxes will not be deleted (you can do that later), but the user will no longer be able to log into any services on this machine.</p>"),
+    create_element("div", {}, [create_element("p", {}, ["Are you sure you want to archive ", create_element("b", {}, [email]), "?"]), create_element("p", { textContent: "The user's mailboxes will not be deleted, but the user will no longer be able to log into services on this machine." })]),
     "Archive",
     function() {
       api(
@@ -327,7 +334,7 @@ function users_remove(elem) {
         },
         function(r) {
           // Responses are multiple lines of pre-formatted text.
-          show_modal_error("Remove User", $("<pre/>").text(r));
+          show_modal_error("Remove User", $("<pre/>").text(r).get(0));
           show_users();
         },
         function(r) {
@@ -349,7 +356,7 @@ function mod_priv(elem, add_remove) {
   var add_remove1 = add_remove.charAt(0).toUpperCase() + add_remove.substring(1);
   show_modal_confirm(
     "Modify Privileges",
-    $("<p>Are you sure you want to " + add_remove + " the " + priv + " privilege for <b>" + email + "</b>?</p>"),
+    create_element("p", {}, ["Are you sure you want to ", add_remove, " the ", priv, " privilege for ", create_element("b", {}, [email]), "?"]),
     add_remove1,
     function() {
       api(
@@ -370,7 +377,7 @@ function generate_random_password() {
   var charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // confusable characters skipped
   for (var i = 0; i < 12; i++)
     pw += charset.charAt(Math.floor(Math.random() * charset.length));
-  show_modal_error("Random Password", "<p>Here, try this:</p> <p><code style='font-size: 110%'>" + pw + "</code></p>");
+  show_modal_error("Random Password", create_element("div", {}, [create_element("p", { textContent: "Here, try this:" }), create_element("p", {}, [create_element("code", { textContent: pw, style: "font-size: 110%" })])]));
   return false; // cancel click
 }
 </script>

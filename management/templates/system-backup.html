@@ -215,7 +215,7 @@ function show_system_backup() {
     { },
     function(r) {
       if (r.error) {
-          show_modal_error("Backup Error", $("<pre/>").text(r.error));
+          show_modal_error("Backup Error", $("<pre/>").text(r.error).get(0));
           return;
       }
 
@@ -335,11 +335,11 @@ function set_custom_backup() {
     },
     function(r) {
       // use .text() --- it's a text response, not html
-      show_modal_error("Backup configuration", $("<p/>").text(r), function() { if (r == "OK") show_system_backup(); }); // refresh after modal on success
+      show_modal_error("Backup configuration", $("<p/>").text(r).get(0), function() { if (r == "OK") show_system_backup(); }); // refresh after modal on success
     },
     function(r) {
       // use .text() --- it's a text response, not html
-      show_modal_error("Backup configuration", $("<p/>").text(r));
+      show_modal_error("Backup configuration", $("<p/>").text(r).get(0));
     });
   return false;
 }

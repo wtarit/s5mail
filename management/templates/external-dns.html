@@ -118,10 +118,10 @@ function do_download_zonefile() {
         "GET",
         {},
         function(data) {
-            show_modal_error("Download Zonefile", $("<pre/>").text(data));
+            show_modal_error("Download Zonefile", $("<pre/>").text(data).get(0));
         },
         function(err) {
-            show_modal_error("Download Zonefile (Error)", $("<pre/>").text(err));
+            show_modal_error("Download Zonefile (Error)", $("<pre/>").text(err).get(0));
         });
 }
 </script>
