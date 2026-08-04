@@ -3,6 +3,10 @@ import { expect, login, openMobileNavigation, test } from "./fixtures.js";
 test.beforeEach(async ({ page }) => login(page));
 
 test("login exposes admin navigation and logout clears the session", async ({ page }) => {
+  expect(await page.evaluate(() => [typeof window.$, typeof window.jQuery])).toEqual([
+    "undefined",
+    "undefined",
+  ]);
   await openMobileNavigation(page);
   await expect(page.locator(".if-logged-in-admin").first()).toBeVisible();
   await page.getByRole("link", { name: "Log out" }).click();
