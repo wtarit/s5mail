@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
+import { query, queryAll, setVisibleAll } from "../elements.js";
 import { show_modal_error } from "../modal.js";
 import { doLogout } from "../session.js";
 import {
@@ -11,22 +11,27 @@ import {
 } from "../state.js";
 
 function do_login() {
-  if (dom("#loginEmail").val() == "") {
+  const emailInput = query("#loginEmail");
+  const passwordInput = query("#loginPassword");
+  const otpInput = query("#loginOtpInput");
+  const loginForm = query("#loginForm");
+
+  if (emailInput.value === "") {
     show_modal_error("Login Failed", "Enter your email address.", function () {
-      dom("#loginEmail").focus();
+      emailInput.focus();
     });
     return false;
   }
 
-  if (dom("#loginPassword").val() == "") {
+  if (passwordInput.value === "") {
     show_modal_error("Login Failed", "Enter your email password.", function () {
-      dom("#loginPassword").focus();
+      passwordInput.focus();
     });
     return false;
   }
 
   // Exchange the email address & password for an API key.
-  setCredentials({ username: dom("#loginEmail").val(), session_key: dom("#loginPassword").val() });
+  setCredentials({ username: emailInput.value, session_key: passwordInput.value });
 
   api(
     "/login",
@@ -40,16 +45,16 @@ function do_login() {
           response.status === "missing-totp-token" ||
           (response.status === "invalid" && response.reason == "invalid-totp-token")
         ) {
-          dom("#loginForm").addClass("is-twofactor");
+          loginForm.classList.add("is-twofactor");
           if (response.reason === "invalid-totp-token") {
             show_modal_error("Login Failed", "Incorrect two factor authentication token.");
           } else {
             setTimeout(() => {
-              dom("#loginOtpInput").focus();
+              otpInput.focus();
             });
           }
         } else {
-          dom("#loginForm").removeClass("is-twofactor");
+          loginForm.classList.remove("is-twofactor");
 
           // Show why the login failed.
           show_modal_error("Login Failed", response.reason);
@@ -75,14 +80,14 @@ function do_login() {
         var api_credentials = getCredentials();
 
         // Try to wipe the username/password information.
-        dom("#loginEmail").val("");
-        dom("#loginPassword").val("");
-        dom("#loginOtpInput").val("");
-        dom("#loginForm").removeClass("is-twofactor");
+        emailInput.value = "";
+        passwordInput.value = "";
+        otpInput.value = "";
+        loginForm.classList.remove("is-twofactor");
 
         // Remember the credentials.
         if (typeof localStorage != "undefined" && typeof sessionStorage != "undefined") {
-          if (dom("#loginRemember").prop("checked")) {
+          if (query("#loginRemember").checked) {
             localStorage.setItem("miab-cp-credentials", JSON.stringify(api_credentials));
             sessionStorage.removeItem("miab-cp-credentials");
           } else {
@@ -114,20 +119,18 @@ function do_login() {
     },
     undefined,
     {
-      "x-auth-token": dom("#loginOtpInput").val(),
+      "x-auth-token": otpInput.value,
     },
   );
 }
 
 function show_login() {
-  dom("#loginForm").removeClass("is-twofactor");
-  dom("#loginOtpInput").val("");
-  dom("#loginEmail,#loginPassword").each(function () {
-    var input = dom(this);
-    if (!dom.trim(input.val())) {
-      input.focus();
-      return false;
-    }
+  query("#loginForm").classList.remove("is-twofactor");
+  query("#loginOtpInput").value = "";
+  queryAll("#loginEmail, #loginPassword").find((input) => {
+    if (input.value.trim()) return false;
+    input.focus();
+    return true;
   });
 }
 
@@ -135,16 +138,16 @@ function show_hide_menus() {
   var api_credentials = getCredentials();
   var is_logged_in = api_credentials != null;
   var privs = api_credentials ? api_credentials.privileges : [];
-  dom(".if-logged-in").toggle(is_logged_in);
-  dom(".if-logged-in-admin, .if-logged-in-not-admin").toggle(false);
+  setVisibleAll(".if-logged-in", is_logged_in);
+  setVisibleAll(".if-logged-in-admin, .if-logged-in-not-admin", false);
   if (is_logged_in) {
-    dom(".if-logged-in-not-admin").toggle(true);
+    setVisibleAll(".if-logged-in-not-admin", true);
     privs.forEach(function (priv) {
-      dom(".if-logged-in-" + priv).toggle(true);
-      dom(".if-logged-in-not-" + priv).toggle(false);
+      setVisibleAll(".if-logged-in-" + priv, true);
+      setVisibleAll(".if-logged-in-not-" + priv, false);
     });
   }
-  dom(".if-not-logged-in").toggle(!is_logged_in);
+  setVisibleAll(".if-not-logged-in", !is_logged_in);
 }
 
 registerPanel("login", show_login);

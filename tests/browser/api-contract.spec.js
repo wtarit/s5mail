@@ -50,3 +50,17 @@ test("HTTP failures call the error path", async ({ page }) => {
   await page.getByRole("button", { name: "Add Alias" }).click();
   await expect(page.locator("#global_modal")).toContainText("service unavailable");
 });
+
+test("quota failures display the API response", async ({ page }) => {
+  await login(page);
+  expectConsoleError(page, "status of 400");
+  await page.route("**/admin/mail/users/quota", (route) =>
+    route.fulfill({ status: 400, contentType: "text/plain", body: "invalid quota" }),
+  );
+  await visitPanel(page, "users", "Users");
+  const user = page.locator("#user_table tr[data-email]").first();
+  await user.getByTitle("Set Quota").click();
+  await page.locator("#users_set_quota").fill("invalid");
+  await page.locator("#global_modal .btn-danger").click();
+  await expect(page.locator("#global_modal")).toContainText("invalid quota");
+});

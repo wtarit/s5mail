@@ -1,30 +1,35 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
-import { create_element } from "../elements.js";
+import { create_element, query, setVisible } from "../elements.js";
 import { show_modal_confirm, show_modal_error } from "../modal.js";
 import { registerPanel } from "../state.js";
 
 function show_system_status() {
-  const summary = dom("#system-checks-summary");
-  summary.html("");
+  const summary = query("#system-checks-summary");
+  summary.replaceChildren();
 
-  dom("#system-checks tbody").html("<tr><td colspan='2' class='text-muted'>Loading...</td></tr>");
+  const tableBody = query("#system-checks tbody");
+  tableBody.replaceChildren(
+    create_element("tr", {}, [
+      create_element("td", { colSpan: 2, className: "text-muted", textContent: "Loading..." }),
+    ]),
+  );
 
   api("/system/privacy", "GET", {}, function (r) {
     current_privacy_setting = r;
-    dom("#system-privacy-setting").show();
-    dom("#system-privacy-setting a span").text(r ? "Enable" : "Disable");
-    dom("#system-privacy-setting p").toggle(r);
+    setVisible(query("#system-privacy-setting"), true);
+    query("#system-privacy-setting a span").textContent = r ? "Enable" : "Disable";
+    setVisible(query("#system-privacy-setting p"), r);
   });
 
   api("/system/reboot", "GET", {}, function (r) {
-    dom("#system-reboot-required").show(); // show when r becomes available
-    dom("#system-reboot-required").find("button").toggle(r);
-    dom("#system-reboot-required").find("div").toggle(!r);
+    const reboot = query("#system-reboot-required");
+    setVisible(reboot, true); // show when r becomes available
+    setVisible(query("button", reboot), r);
+    setVisible(query("div", reboot), !r);
   });
 
   api("/system/status", "POST", {}, function (r) {
-    dom("#system-checks tbody").html("");
+    tableBody.replaceChildren();
     const ok_symbol = "✓";
     const error_symbol = "✖";
     const warning_symbol = "?";
@@ -32,58 +37,65 @@ function show_system_status() {
     let count_by_status = { ok: 0, error: 0, warning: 0 };
 
     for (var i = 0; i < r.length; i++) {
-      var n = dom(
-        "<tr><td class='status'/><td class='message'><p style='margin: 0'/><div class='extra'/><a class='showhide' href='#'/></tr>",
-      );
-      if (i == 0) n.addClass("first");
-      if (r[i].type == "heading") n.addClass(r[i].type);
-      else n.addClass("status-" + r[i].type);
+      const statusCell = create_element("td", { className: "status" });
+      const message = create_element("p", { style: "margin: 0", textContent: r[i].text });
+      const extra = create_element("div", { className: "extra", hidden: true });
+      const showMore = create_element("a", { className: "showhide", href: "#", hidden: true });
+      const row = create_element("tr", {}, [
+        statusCell,
+        create_element("td", { className: "message" }, [message, extra, showMore]),
+      ]);
+      if (i == 0) row.classList.add("first");
+      if (r[i].type == "heading") row.classList.add(r[i].type);
+      else row.classList.add("status-" + r[i].type);
 
-      if (r[i].type == "ok") n.find("td.status").text(ok_symbol);
-      if (r[i].type == "error") n.find("td.status").text(error_symbol);
-      if (r[i].type == "warning") n.find("td.status").text(warning_symbol);
+      if (r[i].type == "ok") statusCell.textContent = ok_symbol;
+      if (r[i].type == "error") statusCell.textContent = error_symbol;
+      if (r[i].type == "warning") statusCell.textContent = warning_symbol;
       count_by_status[r[i].type]++;
 
-      n.find("td.message p").text(r[i].text);
-      dom("#system-checks tbody").append(n);
+      tableBody.append(row);
 
       if (r[i].extra.length > 0) {
-        n.find("a.showhide")
-          .show()
-          .text("show more")
-          .click(function () {
-            dom(this).hide();
-            dom(this).parent().find(".extra").fadeIn();
-            return false;
-          });
+        setVisible(showMore, true);
+        showMore.textContent = "show more";
+        showMore.addEventListener("click", (event) => {
+          event.preventDefault();
+          setVisible(showMore, false);
+          setVisible(extra, true);
+        });
       }
 
       for (var j = 0; j < r[i].extra.length; j++) {
-        var m = dom("<div/>").text(r[i].extra[j].text);
-        if (r[i].extra[j].monospace) m.addClass("pre");
-        n.find("> td.message > div").append(m);
+        var detail = create_element("div", { textContent: r[i].extra[j].text });
+        if (r[i].extra[j].monospace) detail.classList.add("pre");
+        extra.append(detail);
       }
     }
 
     // Summary counts
-    summary.html("Summary: ");
+    summary.append("Summary: ");
     if (count_by_status["error"] + count_by_status["warning"] == 0) {
       summary.append(
-        dom('<span class="summary-ok"/>').text(`All ${count_by_status["ok"]} ${ok_symbol} OK`),
+        create_element("span", {
+          className: "summary-ok",
+          textContent: `All ${count_by_status["ok"]} ${ok_symbol} OK`,
+        }),
       );
     } else {
       summary.append(
-        dom('<span class="summary-ok"/>').text(`${count_by_status["ok"]} ${ok_symbol} OK, `),
-      );
-      summary.append(
-        dom('<span class="summary-error"/>').text(
-          `${count_by_status["error"]} ${error_symbol} Error, `,
-        ),
-      );
-      summary.append(
-        dom('<span class="summary-warning"/>').text(
-          `${count_by_status["warning"]} ${warning_symbol} Warning`,
-        ),
+        create_element("span", {
+          className: "summary-ok",
+          textContent: `${count_by_status["ok"]} ${ok_symbol} OK, `,
+        }),
+        create_element("span", {
+          className: "summary-error",
+          textContent: `${count_by_status["error"]} ${error_symbol} Error, `,
+        }),
+        create_element("span", {
+          className: "summary-warning",
+          textContent: `${count_by_status["warning"]} ${warning_symbol} Warning`,
+        }),
       );
     }
   });

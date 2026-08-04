@@ -7,6 +7,22 @@ export function createElement(tag, properties = {}, children = []) {
 
 export { createElement as create_element };
 
+export function query(selector, root = document) {
+  return root.querySelector(selector);
+}
+
+export function queryAll(selector, root = document) {
+  return [...root.querySelectorAll(selector)];
+}
+
+export function preformatted(text) {
+  return createElement("pre", { textContent: text });
+}
+
 export function setVisible(element, visible) {
-  element.style.display = visible ? "" : "none";
+  element.hidden = !visible;
+}
+
+export function setVisibleAll(selector, visible, root = document) {
+  queryAll(selector, root).forEach((element) => setVisible(element, visible));
 }

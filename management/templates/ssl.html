@@ -10,7 +10,7 @@
 <div id="ssl_provision">
 <h3>Provision certificates</h3>
 
-<div id="ssl_provision_p" style="display: none; margin-top: 1.5em">
+<div id="ssl_provision_p" hidden style="margin-top: 1.5em">
   <button data-tls-action="provision" class='btn btn-primary' style="float: left; margin: 0 1.5em 1em 0;">Provision</button>
   <p>A TLS certificate can be automatically provisioned from <a href="https://letsencrypt.org/" target="_blank">Let&rsquo;s Encrypt</a>, a free TLS certificate provider, for:<br>
   <span class="text-primary"></span></p>
@@ -25,7 +25,7 @@
 
 <p style="margin-top: 1.5em">Certificates expire after a period of time. All certificates will be automatically renewed through <a href="https://letsencrypt.org/" target="_blank">Let&rsquo;s Encrypt</a> 14 days prior to expiration.</p>
 
-<table id="ssl_domains" class="table" style="margin-bottom: 2em; width: auto; display: none">
+<table id="ssl_domains" class="table" hidden style="margin-bottom: 2em; width: auto">
   <thead>
     <tr>
       <th scope="col">Domain</th>
@@ -57,7 +57,7 @@
 	{% endfor %}
 </select></p>
 
-<div id="csr_info" style="display: none">
+<div id="csr_info" hidden>
   <p>You will need to provide the certificate provider this Certificate Signing Request (CSR):</p>
 
   <pre id="ssl_csr"></pre>

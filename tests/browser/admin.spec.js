@@ -45,6 +45,13 @@ test("modal Escape restores focus and exposes ARIA state", async ({ page }) => {
   const modal = page.locator("#global_modal");
   await expect(modal).toBeVisible();
   await expect(modal).not.toHaveAttribute("aria-hidden", "true");
+  const close = modal.getByRole("button", { name: "Close Dialog" });
+  const ok = modal.getByRole("button", { name: "OK" });
+  await ok.focus();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(ok).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(modal).toHaveAttribute("aria-hidden", "true");
   await expect(trigger).toBeFocused();

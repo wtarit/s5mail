@@ -10,6 +10,12 @@ let callbacks = [];
 let choice = null;
 let priorFocus = null;
 
+function focusableElements() {
+  return [...modal.querySelectorAll("a[href], button, input, select, textarea, [tabindex]")].filter(
+    (element) => !element.disabled && element.tabIndex >= 0 && element.getClientRects().length > 0,
+  );
+}
+
 function contentNode(content) {
   if (typeof content === "string") {
     const paragraph = document.createElement("p");
@@ -81,6 +87,24 @@ export function initializeModal() {
   cancelButton.addEventListener("click", () => hideModal(1));
   confirmButton.addEventListener("click", () => hideModal(0));
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && modal.classList.contains("in")) hideModal();
+    if (!modal.classList.contains("in")) return;
+    if (event.key === "Escape") {
+      hideModal();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = focusableElements();
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first) {
+      event.preventDefault();
+      modal.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 }

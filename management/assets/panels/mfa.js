@@ -48,7 +48,8 @@ function render_totp_setup(provisioned_totp) {
 function render_disable(mfa) {
   el.disableForm.addEventListener("submit", do_disable);
   el.wrapper.classList.add("enabled");
-  if (mfa.label) dom("#mfa-device-label").text(" on device '" + mfa.label + "'");
+  if (mfa.label)
+    el.wrapper.querySelector("#mfa-device-label").textContent = ` on device '${mfa.label}'`;
 }
 
 function hide_error() {
@@ -79,7 +80,6 @@ function reset_view() {
 }
 
 import { api } from "../api.js";
-import { dom } from "../dom.js";
 import { registerPanel } from "../state.js";
 import { doLogout } from "../session.js";
 
@@ -120,9 +120,9 @@ function do_enable_totp(evt) {
     "/mfa/totp/enable",
     "POST",
     {
-      token: dom(el.totpSetupToken).val(),
-      secret: dom(el.totpSetupSecret).val(),
-      label: dom(el.totpSetupLabel).val(),
+      token: el.totpSetupToken.value,
+      secret: el.totpSetupSecret.value,
+      label: el.totpSetupLabel.value,
     },
     function () {
       doLogout();

@@ -1,57 +1,61 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
+import { create_element, preformatted, query } from "../elements.js";
 import { show_modal_error } from "../modal.js";
 import { registerPanel } from "../state.js";
 
 function show_external_dns() {
   api("/dns/zones", "GET", {}, function (data) {
-    var zones = dom("#downloadZonefile");
-    zones.text("");
+    const zones = query("#downloadZonefile");
+    zones.replaceChildren();
     for (var j = 0; j < data.length; j++) {
-      zones.append(dom("<option/>").text(data[j]));
+      zones.append(create_element("option", { textContent: data[j] }));
     }
   });
 
-  dom("#external_dns_settings tbody").html(
-    "<tr><td colspan='2' class='text-muted'>Loading...</td></tr>",
+  const tableBody = query("#external_dns_settings tbody");
+  tableBody.replaceChildren(
+    create_element("tr", {}, [
+      create_element("td", { colSpan: 2, className: "text-muted", textContent: "Loading..." }),
+    ]),
   );
   api("/dns/dump", "GET", {}, function (zones) {
-    dom("#external_dns_settings tbody").html("");
+    tableBody.replaceChildren();
     for (var j = 0; j < zones.length; j++) {
-      var h = dom("<tr class='heading'><td colspan='3'></td></tr>");
-      h.find("td").text(zones[j][0]);
-      dom("#external_dns_settings tbody").append(h);
+      tableBody.append(
+        create_element("tr", { className: "heading" }, [
+          create_element("td", { colSpan: 3, textContent: zones[j][0] }),
+        ]),
+      );
 
       var r = zones[j][1];
       for (var i = 0; i < r.length; i++) {
-        var n = dom(
-          "<tr class='values'><td class='qname'/><td class='rtype'/><td class='value'/></tr>",
+        tableBody.append(
+          create_element("tr", { className: "values" }, [
+            create_element("td", { className: "qname", textContent: r[i].qname }),
+            create_element("td", { className: "rtype", textContent: r[i].rtype }),
+            create_element("td", { className: "value", textContent: r[i].value }),
+          ]),
+          create_element("tr", { className: "explanation" }, [
+            create_element("td", { colSpan: 3, textContent: r[i].explanation }),
+          ]),
         );
-        n.find(".qname").text(r[i].qname);
-        n.find(".rtype").text(r[i].rtype);
-        n.find(".value").text(r[i].value);
-        dom("#external_dns_settings tbody").append(n);
-
-        var n = dom("<tr class='explanation'><td colspan='3'/></tr>");
-        n.find("td").text(r[i].explanation);
-        dom("#external_dns_settings tbody").append(n);
       }
     }
   });
 }
 
 function do_download_zonefile() {
-  var zone = dom("#downloadZonefile").val();
+  var zone = query("#downloadZonefile").value;
 
   api(
     "/dns/zonefile/" + zone,
     "GET",
     {},
     function (data) {
-      show_modal_error("Download Zonefile", dom("<pre/>").text(data).get(0));
+      show_modal_error("Download Zonefile", preformatted(data));
     },
     function (err) {
-      show_modal_error("Download Zonefile (Error)", dom("<pre/>").text(err).get(0));
+      show_modal_error("Download Zonefile (Error)", preformatted(err));
     },
   );
 }

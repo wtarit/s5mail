@@ -1,100 +1,90 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
+import { create_element, preformatted, query, queryAll, setVisible } from "../elements.js";
 import { show_modal_confirm, show_modal_error } from "../modal.js";
 import { registerPanel } from "../state.js";
 
 function show_aliases() {
-  dom("#alias_table tbody").html("<tr><td colspan='2' class='text-muted'>Loading...</td></tr>");
+  const tableBody = query("#alias_table tbody");
+  tableBody.replaceChildren(
+    create_element("tr", {}, [
+      create_element("td", { colSpan: 2, className: "text-muted", textContent: "Loading..." }),
+    ]),
+  );
   api("/mail/aliases", "GET", { format: "json" }, function (r) {
-    dom("#alias_table tbody").html("");
+    tableBody.replaceChildren();
     for (var i = 0; i < r.length; i++) {
-      var hdr = dom(
-        "<tr><th role='heading' aria-level='4' colspan='4' style='background-color: #EEE'></th></tr>",
+      tableBody.append(
+        create_element("tr", {}, [
+          create_element("th", {
+            role: "heading",
+            ariaLevel: "4",
+            colSpan: 4,
+            style: "background-color: #EEE",
+            textContent: r[i].domain,
+          }),
+        ]),
       );
-      hdr.find("th").text(r[i].domain);
-      dom("#alias_table tbody").append(hdr);
 
       for (var k = 0; k < r[i].aliases.length; k++) {
         var alias = r[i].aliases[k];
 
-        var n = dom("#alias-template").clone();
-        n.attr("id", "");
+        const row = query("#alias-template").cloneNode(true);
+        row.removeAttribute("id");
 
-        if (alias.auto) n.addClass("alias-auto");
-        n.attr("data-address", alias.address_display); // this is decoded from IDNA, but will get re-coded to IDNA on the backend
-        n.find("td.address").text(alias.address_display);
+        if (alias.auto) row.classList.add("alias-auto");
+        row.dataset.address = alias.address_display; // decoded from IDNA; the backend re-encodes it
+        query("td.address", row).textContent = alias.address_display;
         for (var j = 0; j < alias.forwards_to.length; j++)
-          n.find("td.forwardsTo").append(dom("<div></div>").text(alias.forwards_to[j]));
+          query("td.forwardsTo", row).append(
+            create_element("div", { textContent: alias.forwards_to[j] }),
+          );
         for (var j = 0; j < (alias.permitted_senders ? alias.permitted_senders.length : 0); j++)
-          n.find("td.senders").append(dom("<div></div>").text(alias.permitted_senders[j]));
-        dom("#alias_table tbody").append(n);
+          query("td.senders", row).append(
+            create_element("div", { textContent: alias.permitted_senders[j] }),
+          );
+        tableBody.append(row);
       }
     }
   });
-
-  dom(function () {
-    dom("#alias_type_buttons button")
-      .off("click")
-      .click(function () {
-        dom("#alias_type_buttons button").removeClass("active");
-        dom(this).addClass("active");
-        dom(
-          "#addalias-form .regularalias, #addalias-form .catchall, #addalias-form .domainalias",
-        ).addClass("hidden");
-        if (dom(this).attr("data-mode") == "regular") {
-          dom("#addaliasAddress").attr("type", "email");
-          dom("#addaliasAddress").attr(
-            "placeholder",
-            "you@yourdomain.com (incoming email address)",
-          );
-          dom("#addaliasForwardsTo").attr(
-            "placeholder",
-            "one address per line or separated by commas",
-          );
-          dom("#alias_mode_info").slideUp();
-          dom("#addalias-form .regularalias").removeClass("hidden");
-        } else if (dom(this).attr("data-mode") == "catchall") {
-          dom("#addaliasAddress").attr("type", "text");
-          dom("#addaliasAddress").attr(
-            "placeholder",
-            "@yourdomain.com (incoming catch-all domain)",
-          );
-          dom("#addaliasForwardsTo").attr(
-            "placeholder",
-            "one address per line or separated by commas",
-          );
-          dom("#alias_mode_info").slideDown();
-          dom("#addalias-form .catchall").removeClass("hidden");
-        } else if (dom(this).attr("data-mode") == "domainalias") {
-          dom("#addaliasAddress").attr("type", "text");
-          dom("#addaliasAddress").attr(
-            "placeholder",
-            "@yourdomain.com (incoming catch-all domain)",
-          );
-          dom("#addaliasForwardsTo").attr(
-            "placeholder",
-            "@otherdomain.com (forward to other domain)",
-          );
-          dom("#alias_mode_info").slideDown();
-          dom("#addalias-form .domainalias").removeClass("hidden");
-        }
-      });
-    dom('#alias_type_buttons button[data-mode="regular"]').click(); // init
-  });
 }
+
+function set_alias_mode(button) {
+  queryAll("#alias_type_buttons button").forEach((item) => item.classList.remove("active"));
+  button.classList.add("active");
+  queryAll(
+    "#addalias-form .regularalias, #addalias-form .catchall, #addalias-form .domainalias",
+  ).forEach((item) => item.classList.add("hidden"));
+
+  const address = query("#addaliasAddress");
+  const forwards = query("#addaliasForwardsTo");
+  const mode = button.dataset.mode;
+  address.type = mode === "regular" ? "email" : "text";
+  address.placeholder =
+    mode === "regular"
+      ? "you@yourdomain.com (incoming email address)"
+      : "@yourdomain.com (incoming catch-all domain)";
+  forwards.placeholder =
+    mode === "domainalias"
+      ? "@otherdomain.com (forward to other domain)"
+      : "one address per line or separated by commas";
+  setVisible(query("#alias_mode_info"), mode !== "regular");
+  queryAll(`#addalias-form .${mode}`).forEach((item) => item.classList.remove("hidden"));
+}
+
+queryAll("#alias_type_buttons button").forEach((button) => {
+  button.addEventListener("click", () => set_alias_mode(button));
+});
+set_alias_mode(query('#alias_type_buttons button[data-mode="regular"]'));
 
 var is_alias_add_update = false;
 function do_add_alias() {
   var title = !is_alias_add_update ? "Add Alias" : "Update Alias";
-  var form_address = dom("#addaliasAddress").val();
-  var form_forwardsto = dom("#addaliasForwardsTo").val();
-  var form_senders = dom("#addaliasForwardsToAdvanced").prop("checked")
-    ? dom("#addaliasSenders").val()
+  var form_address = query("#addaliasAddress").value;
+  var form_forwardsto = query("#addaliasForwardsTo").value;
+  var form_senders = query("#addaliasForwardsToAdvanced").checked
+    ? query("#addaliasSenders").value
     : "";
-  if (
-    dom("#addaliasForwardsToAdvanced").prop("checked") &&
-    !/\S/.exec(dom("#addaliasSenders").val())
-  ) {
+  if (query("#addaliasForwardsToAdvanced").checked && !/\S/.exec(query("#addaliasSenders").value)) {
     show_modal_error(title, "You did not enter any permitted senders.");
     return false;
   }
@@ -109,7 +99,7 @@ function do_add_alias() {
     },
     function (r) {
       // Responses are multiple lines of pre-formatted text.
-      show_modal_error(title, dom("<pre/>").text(r).get(0));
+      show_modal_error(title, preformatted(r));
       show_aliases();
       aliases_reset_form();
     },
@@ -121,42 +111,45 @@ function do_add_alias() {
 }
 
 function aliases_reset_form() {
-  dom("#addaliasAddress").prop("disabled", false);
-  dom("#addaliasAddress").val("");
-  dom("#addaliasForwardsTo").val("");
-  dom("#addaliasSenders").val("");
-  dom("#alias-cancel").addClass("hidden");
-  dom("#add-alias-button").text("Add Alias");
+  query("#addaliasAddress").disabled = false;
+  query("#addaliasAddress").value = "";
+  query("#addaliasForwardsTo").value = "";
+  query("#addaliasSenders").value = "";
+  query("#alias-cancel").classList.add("hidden");
+  query("#add-alias-button").textContent = "Add Alias";
   is_alias_add_update = false;
 }
 
 function aliases_edit(elem) {
-  var address = dom(elem).parents("tr").attr("data-address");
-  var receiverdivs = dom(elem).parents("tr").find(".forwardsTo div");
-  var senderdivs = dom(elem).parents("tr").find(".senders div");
-  var forwardsTo = "";
-  for (var i = 0; i < receiverdivs.length; i++) forwardsTo += dom(receiverdivs[i]).text() + "\n";
-  var senders = "";
-  for (var i = 0; i < senderdivs.length; i++) senders += dom(senderdivs[i]).text() + "\n";
+  const row = elem.closest("tr");
+  var address = row.dataset.address;
+  var forwardsTo = queryAll(".forwardsTo div", row)
+    .map((item) => item.textContent)
+    .join("\n");
+  var senders = queryAll(".senders div", row)
+    .map((item) => item.textContent)
+    .join("\n");
+  if (forwardsTo) forwardsTo += "\n";
+  if (senders) senders += "\n";
   if (address.charAt(0) == "@" && forwardsTo.charAt(0) == "@")
-    dom('#alias_type_buttons button[data-mode="domainalias"]').click();
+    set_alias_mode(query('#alias_type_buttons button[data-mode="domainalias"]'));
   else if (address.charAt(0) == "@")
-    dom('#alias_type_buttons button[data-mode="catchall"]').click();
-  else dom('#alias_type_buttons button[data-mode="regular"]').click();
-  dom("#alias-cancel").removeClass("hidden");
-  dom("#addaliasAddress").prop("disabled", true);
-  dom("#addaliasAddress").val(address);
-  dom("#addaliasForwardsTo").val(forwardsTo);
-  dom("#addaliasForwardsToAdvanced").prop("checked", senders != "");
-  dom("#addaliasForwardsToNotAdvanced").prop("checked", senders == "");
-  dom("#addaliasSenders").val(senders);
-  dom("#add-alias-button").text("Update");
-  dom("body").animate({ scrollTop: 0 });
+    set_alias_mode(query('#alias_type_buttons button[data-mode="catchall"]'));
+  else set_alias_mode(query('#alias_type_buttons button[data-mode="regular"]'));
+  query("#alias-cancel").classList.remove("hidden");
+  query("#addaliasAddress").disabled = true;
+  query("#addaliasAddress").value = address;
+  query("#addaliasForwardsTo").value = forwardsTo;
+  query("#addaliasForwardsToAdvanced").checked = senders !== "";
+  query("#addaliasForwardsToNotAdvanced").checked = senders === "";
+  query("#addaliasSenders").value = senders;
+  query("#add-alias-button").textContent = "Update";
+  window.scrollTo({ top: 0 });
   is_alias_add_update = true;
 }
 
 function aliases_remove(elem) {
-  var row_address = dom(elem).parents("tr").attr("data-address");
+  var row_address = elem.closest("tr").dataset.address;
   show_modal_confirm("Remove Alias", "Remove " + row_address + "?", "Remove", function () {
     api(
       "/mail/aliases/remove",
@@ -166,7 +159,7 @@ function aliases_remove(elem) {
       },
       function (r) {
         // Responses are multiple lines of pre-formatted text.
-        show_modal_error("Remove Alias", dom("<pre/>").text(r).get(0));
+        show_modal_error("Remove Alias", preformatted(r));
         show_aliases();
       },
     );
@@ -174,12 +167,7 @@ function aliases_remove(elem) {
 }
 
 function scroll_top() {
-  dom("html, body").animate(
-    {
-      scrollTop: dom("#panel_aliases").offset().top,
-    },
-    1000,
-  );
+  window.scrollTo({ top: query("#panel_aliases").getBoundingClientRect().top + window.scrollY });
 }
 
 registerPanel("aliases", show_aliases);
@@ -203,8 +191,6 @@ document
   .querySelectorAll("[name='addaliasForwardsToDivToggle']")
   .forEach((radio) =>
     radio.addEventListener("change", () =>
-      dom("#addaliasForwardsToDiv").toggle(
-        document.querySelector("#addaliasForwardsToAdvanced").checked,
-      ),
+      setVisible(query("#addaliasForwardsToDiv"), query("#addaliasForwardsToAdvanced").checked),
     ),
   );

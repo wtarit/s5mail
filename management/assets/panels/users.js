@@ -1,75 +1,14 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
-import { create_element } from "../elements.js";
+import { create_element, preformatted, query } from "../elements.js";
 import { show_modal_confirm, show_modal_error } from "../modal.js";
 import { getCredentials, registerPanel } from "../state.js";
-
-function show_users() {
-  dom("#user_table tbody").html("<tr><td colspan='2' class='text-muted'>Loading...</td></tr>");
-  api("/mail/users", "GET", { format: "json" }, function (r) {
-    dom("#user_table tbody").html("");
-    for (var i = 0; i < r.length; i++) {
-      var hdr = dom(
-        "<tr><th role='heading' aria-level='4' colspan='6' style='background-color: #EEE'></th></tr>",
-      );
-      hdr.find("th").text(r[i].domain);
-      dom("#user_table tbody").append(hdr);
-
-      for (var k = 0; k < r[i].users.length; k++) {
-        var user = r[i].users[k];
-
-        var n = dom("#user-template").clone();
-        var n2 = dom("#user-extra-template").clone();
-        n.attr("id", "");
-        n2.attr("id", "");
-        dom("#user_table tbody").append(n);
-        dom("#user_table tbody").append(n2);
-
-        n.addClass("account_" + user.status);
-        n2.addClass("account_" + user.status);
-
-        n.attr("data-email", user.email);
-        n.attr("data-quota", user.quota);
-        n.find(".address").text(user.email);
-        n.find(".box-size").text(user.box_size);
-        if (user.box_size == "?") {
-          n.find(".box-size").attr("title", "Mailbox size is unkown");
-        }
-        n.find(".percent").text(user.percent);
-        n.find(".quota").text(user.quota == "0" ? "unlimited" : user.quota);
-        n2.find(".restore_info tt").text(user.mailbox);
-
-        if (user.status == "inactive") continue;
-
-        var add_privs = ["admin"];
-
-        for (var j = 0; j < user.privileges.length; j++) {
-          var p = dom(
-            "<span><b><span class='name'></span></b> (<a href='#' data-privilege-action='remove' title='Remove Privilege'>remove privilege</a>) |</span>",
-          );
-          p.find("span.name").text(user.privileges[j]);
-          n.find(".privs").append(p);
-          if (add_privs.indexOf(user.privileges[j]) >= 0)
-            add_privs.splice(add_privs.indexOf(user.privileges[j]), 1);
-        }
-
-        for (var j = 0; j < add_privs.length; j++) {
-          var p = dom(
-            "<span><a href='#' data-privilege-action='add' title='Add Privilege'>make <span class='name'></span></a> | </span>",
-          );
-          p.find("span.name").text(add_privs[j]);
-          n.find(".add-privs").append(p);
-        }
-      }
-    }
-  });
-}
+import { show_users } from "./users-list.js";
 
 function do_add_user() {
-  var email = dom("#adduserEmail").val();
-  var pw = dom("#adduserPassword").val();
-  var privs = dom("#adduserPrivs").val();
-  var quota = dom("#adduserQuota").val();
+  var email = query("#adduserEmail").value;
+  var pw = query("#adduserPassword").value;
+  var privs = query("#adduserPrivs").value;
+  var quota = query("#adduserQuota").value;
   api(
     "/mail/users/add",
     "POST",
@@ -81,7 +20,7 @@ function do_add_user() {
     },
     function (r) {
       // Responses are multiple lines of pre-formatted text.
-      show_modal_error("Add User", dom("<pre/>").text(r).get(0));
+      show_modal_error("Add User", preformatted(r));
       show_users();
     },
     function (r) {
@@ -93,7 +32,7 @@ function do_add_user() {
 
 function users_set_password(elem) {
   var api_credentials = getCredentials();
-  var email = dom(elem).parents("tr").attr("data-email");
+  var email = elem.closest("tr").dataset.email;
 
   var content = create_element("div", {}, [
     create_element("p", {}, ["Set a new password for ", create_element("b", {}, [email]), "?"]),
@@ -126,11 +65,11 @@ function users_set_password(elem) {
       "POST",
       {
         email: email,
-        password: dom("#users_set_password_pw").val(),
+        password: query("#users_set_password_pw").value,
       },
       function (r) {
         // Responses are multiple lines of pre-formatted text.
-        show_modal_error("Set Password", dom("<pre/>").text(r).get(0));
+        show_modal_error("Set Password", preformatted(r));
       },
       function (r) {
         show_modal_error("Set Password", r);
@@ -140,8 +79,9 @@ function users_set_password(elem) {
 }
 
 function users_set_quota(elem) {
-  var email = dom(elem).parents("tr").attr("data-email");
-  var quota = dom(elem).parents("tr").attr("data-quota");
+  const row = elem.closest("tr");
+  var email = row.dataset.email;
+  var quota = row.dataset.quota;
 
   show_modal_confirm(
     "Set Quota",
@@ -171,13 +111,13 @@ function users_set_quota(elem) {
         "POST",
         {
           email: email,
-          quota: dom("#users_set_quota").val(),
+          quota: query("#users_set_quota").value,
         },
         function () {
           show_users();
         },
-        function () {
-          show_modal_error("Set Quota", r);
+        function (error) {
+          show_modal_error("Set Quota", error);
         },
       );
     },
@@ -186,7 +126,7 @@ function users_set_quota(elem) {
 
 function users_remove(elem) {
   var api_credentials = getCredentials();
-  var email = dom(elem).parents("tr").attr("data-email");
+  var email = elem.closest("tr").dataset.email;
 
   // can't remove yourself
   if (api_credentials != null && email == api_credentials.username) {
@@ -217,7 +157,7 @@ function users_remove(elem) {
         },
         function (r) {
           // Responses are multiple lines of pre-formatted text.
-          show_modal_error("Remove User", dom("<pre/>").text(r).get(0));
+          show_modal_error("Remove User", preformatted(r));
           show_users();
         },
         function (r) {
@@ -230,8 +170,8 @@ function users_remove(elem) {
 
 function mod_priv(elem, add_remove) {
   var api_credentials = getCredentials();
-  var email = dom(elem).parents("tr").attr("data-email");
-  var priv = dom(elem).parents("td").find(".name").text();
+  var email = elem.closest("tr").dataset.email;
+  var priv = query(".name", elem.closest("td")).textContent;
 
   // can't remove your own admin access
   if (

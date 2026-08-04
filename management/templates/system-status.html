@@ -20,13 +20,11 @@
   color: #040;
 }
 #system-checks div.extra {
-  display: none;
   margin-top: 1em;
   max-width: 50em;
   word-wrap: break-word;
 }
 #system-checks a.showhide {
-  display: none;
   font-size: 85%;
 }
 #system-checks .pre {
@@ -39,12 +37,12 @@
 <div class="row">
 	<div class="col-md-push-9 col-md-3">
 
-<div id="system-reboot-required" style="display: none; margin-bottom: 1em;">
+<div id="system-reboot-required" hidden style="margin-bottom: 1em;">
 	<button type="button" class="btn btn-danger" data-system-action="reboot">Reboot Box</button>
 	<div>No reboot is necessary.</div>
 </div>
 
-<div id="system-privacy-setting" style="display: none">
+<div id="system-privacy-setting" hidden>
 	<div><a data-system-action="privacy" href="#"><span>Enable/Disable</span> New-Version Check</a></div>
 	<p style="line-height: 125%"><small>(When enabled, status checks phone-home to check for a new release of Mail-in-a-Box.)</small></p>
 </div>

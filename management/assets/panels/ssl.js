@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { dom } from "../dom.js";
+import { create_element, query, setVisible } from "../elements.js";
 import { show_modal_error } from "../modal.js";
 import { registerPanel } from "../state.js";
 
@@ -7,69 +7,83 @@ function show_tls(keep_provisioning_shown) {
   api("/ssl/status", "GET", {}, function (res) {
     // provisioning status
 
-    if (!keep_provisioning_shown) dom("#ssl_provision").toggle(res.can_provision.length > 0);
+    if (!keep_provisioning_shown) setVisible(query("#ssl_provision"), res.can_provision.length > 0);
 
-    dom("#ssl_provision_p").toggle(res.can_provision.length > 0);
+    setVisible(query("#ssl_provision_p"), res.can_provision.length > 0);
     if (res.can_provision.length > 0)
-      dom("#ssl_provision_p span").text(res.can_provision.join(", "));
+      query("#ssl_provision_p span").textContent = res.can_provision.join(", ");
 
     // certificate status
     var domains = res.status;
-    var tb = dom("#ssl_domains tbody");
-    tb.text("");
-    dom("#ssldomain").html('<option value="">(select)</option>');
-    dom("#ssl_domains").show();
+    const tableBody = query("#ssl_domains tbody");
+    tableBody.replaceChildren();
+    const domainSelect = query("#ssldomain");
+    domainSelect.replaceChildren(create_element("option", { value: "", textContent: "(select)" }));
+    setVisible(query("#ssl_domains"), true);
     for (var i = 0; i < domains.length; i++) {
-      var row = dom(
-        "<tr><th scope='row' class='domain'><a href=''></a></th><td class='status'></td> <td class='actions'><a href='#' class='btn btn-xs ssl-install'>Install Certificate</a></td></tr>",
-      );
-      tb.append(row);
-      row.attr("data-domain", domains[i].domain);
-      row.find(".domain a").text(domains[i].domain);
-      row.find(".domain a").attr("href", "https://" + domains[i].domain);
+      const domainLink = create_element("a", {
+        href: "https://" + domains[i].domain,
+        textContent: domains[i].domain,
+      });
+      const action = create_element("a", {
+        href: "#",
+        className: "btn btn-xs ssl-install",
+        textContent: "Install Certificate",
+      });
+      const row = create_element("tr", {}, [
+        create_element("th", { scope: "row", className: "domain" }, [domainLink]),
+        create_element("td", { className: "status" }),
+        create_element("td", { className: "actions" }, [action]),
+      ]);
+      tableBody.append(row);
+      row.dataset.domain = domains[i].domain;
       if (domains[i].status == "not-applicable") {
         domains[i].status = "muted"; // text-muted css class
-        row.find(".actions a").remove(); // no actions applicable
+        action.remove(); // no actions applicable
       }
-      row.addClass("text-" + domains[i].status);
-      row.find(".status").text(domains[i].text);
+      row.classList.add("text-" + domains[i].status);
+      query(".status", row).textContent = domains[i].text;
       if (domains[i].status == "success") {
-        row.find(".actions a").addClass("btn-default").text("Replace Certificate");
+        action.classList.add("btn-default");
+        action.textContent = "Replace Certificate";
       } else {
-        row.find(".actions a").addClass("btn-primary").text("Install Certificate");
+        action.classList.add("btn-primary");
+        action.textContent = "Install Certificate";
       }
 
-      dom("#ssldomain").append(dom("<option>").text(domains[i].domain));
+      domainSelect.append(create_element("option", { textContent: domains[i].domain }));
     }
   });
 }
 
 function ssl_install(elem) {
-  var domain = dom(elem).parents("tr").attr("data-domain");
-  dom("#ssldomain").val(domain);
+  var domain = elem.closest("tr").dataset.domain;
+  query("#ssldomain").value = domain;
   show_csr();
-  dom("html, body").animate({
-    scrollTop: dom("#ssl_install_header").offset().top - dom(".navbar-fixed-top").height() - 20,
+  const header = query("#ssl_install_header");
+  const navbarHeight = query(".navbar-fixed-top")?.getBoundingClientRect().height || 0;
+  window.scrollTo({
+    top: header.getBoundingClientRect().top + window.scrollY - navbarHeight - 20,
   });
   return false;
 }
 
 function show_csr() {
   // Can't show a CSR until both inputs are entered.
-  if (dom("#ssldomain").val() == "") return;
-  if (dom("#sslcc").val() == "") return;
+  if (query("#ssldomain").value === "") return;
+  if (query("#sslcc").value === "") return;
 
   // Scroll to it and fetch.
-  dom("#csr_info").slideDown();
-  dom("#ssl_csr").text("Loading...");
+  setVisible(query("#csr_info"), true);
+  query("#ssl_csr").textContent = "Loading...";
   api(
-    "/ssl/csr/" + dom("#ssldomain").val(),
+    "/ssl/csr/" + query("#ssldomain").value,
     "POST",
     {
-      countrycode: dom("#sslcc").val(),
+      countrycode: query("#sslcc").value,
     },
     function (data) {
-      dom("#ssl_csr").text(data);
+      query("#ssl_csr").textContent = data;
     },
   );
 }
@@ -79,9 +93,9 @@ function install_cert() {
     "/ssl/install",
     "POST",
     {
-      domain: dom("#ssldomain").val(),
-      cert: dom("#ssl_paste_cert").val(),
-      chain: dom("#ssl_paste_chain").val(),
+      domain: query("#ssldomain").value,
+      cert: query("#ssl_paste_cert").value,
+      chain: query("#ssl_paste_chain").value,
     },
     function (status) {
       if (/^OK($|\n)/.test(status)) {
@@ -91,7 +105,7 @@ function install_cert() {
           "Certificate has been installed. Check that you have no connection problems to the domain.",
           function () {
             show_tls();
-            dom("#csr_info").slideUp();
+            setVisible(query("#csr_info"), false);
           },
         );
       } else {
@@ -103,11 +117,11 @@ function install_cert() {
 
 function provision_tls_cert() {
   // Automatically provision any certs.
-  dom("#ssl_provision_p .btn").attr("disabled", "1"); // prevent double-clicks
+  query("#ssl_provision_p .btn").disabled = true; // prevent double-clicks
   api("/ssl/provision", "POST", {}, function (status) {
     // Clear last attempt.
-    dom("#ssl_provision_result").text("");
-    may_reenable_provision_button = true;
+    const result = query("#ssl_provision_result");
+    result.replaceChildren();
 
     // Nothing was done. There might also be problem domains, but we've already displayed those.
     if (status.requests.length == 0) {
@@ -131,34 +145,41 @@ function provision_tls_cert() {
       }
 
       // create an HTML block to display the results of this request
-      var n = dom("<div><h4/><p/></div>");
-      dom("#ssl_provision_result").append(n);
+      const heading = create_element("h4");
+      const message = create_element("p");
+      const block = create_element("div", {}, [heading, message]);
+      result.append(block);
 
       // plain log line
       if (typeof r === "string") {
-        n.find("p").text(r);
+        message.textContent = r;
         continue;
       }
 
       // show a header only to disambiguate request blocks
-      if (status.requests.length > 0) n.find("h4").text(r.domains.join(", "));
+      if (status.requests.length > 0) heading.textContent = r.domains.join(", ");
 
       if (r.result == "error") {
-        n.find("p").addClass("text-danger").text(r.message);
+        message.classList.add("text-danger");
+        message.textContent = r.message;
       } else if (r.result == "installed") {
-        n.find("p")
-          .addClass("text-success")
-          .text("The TLS certificate was provisioned and installed.");
+        message.classList.add("text-success");
+        message.textContent = "The TLS certificate was provisioned and installed.";
         setTimeout(() => show_tls(true), 1); // update statuses without clearing provisioning output
       }
 
       // display the detailed log info in case of problems
-      var trace = dom("<div class='small text-muted' style='margin-top: 1.5em'>Log:</div>");
-      n.append(trace);
-      for (var j = 0; j < r.log.length; j++) trace.append(dom("<div/>").text(r.log[j]));
+      const trace = create_element("div", {
+        className: "small text-muted",
+        style: "margin-top: 1.5em",
+        textContent: "Log:",
+      });
+      block.append(trace);
+      for (var j = 0; j < r.log.length; j++)
+        trace.append(create_element("div", { textContent: r.log[j] }));
     }
 
-    if (may_reenable_provision_button) dom("#ssl_provision_p .btn").removeAttr("disabled");
+    query("#ssl_provision_p .btn").disabled = false;
   });
 }
 

@@ -18,6 +18,7 @@ initializeModal();
 initializeNavigation();
 restoreCredentials();
 show_hide_menus();
+document.documentElement.classList.remove("js-loading");
 
 document.querySelector("[data-session-action='logout']").addEventListener("click", (event) => {
   event.preventDefault();
