@@ -44,3 +44,5 @@
 - Use non-destructive commands and make focused edits. Never reset, overwrite, or remove unrelated work.
 - Do not commit, push, deploy, restart services, or change a live system unless explicitly requested.
 - For changes that could interrupt mail, DNS, login, TLS, or backups, explain the operational impact and include a rollback or recovery consideration.
+- Before backing up or migrating SQLite state, establish an exclusive maintenance window: prevent new web and scheduled writers, verify services stopped, and drain already-running jobs before touching the database. Preserve prior service state and reactivate writers only after all database work succeeds.
+- Make multi-step upgrades resumable beyond the recorded application version. Persist explicit in-progress state until deferred migrations and repairs complete so an interrupted rerun cannot skip unfinished database work.
