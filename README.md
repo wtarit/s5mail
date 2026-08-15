@@ -1,29 +1,26 @@
-Mail-in-a-Box
-=============
+# S5 Mail
 
-By [@JoshData](https://github.com/JoshData) and [contributors](https://github.com/mail-in-a-box/mailinabox/graphs/contributors).
+Host your own mail server on $5 VPS.
 
-Mail-in-a-Box helps individuals take back control of their email by defining a one-click, easy-to-deploy SMTP+everything else server: a mail server in a box.
+> [!IMPORTANT]
+> **Project status:** S5 Mail is under active development. Version **2026.08.1**
+> is the final release for Ubuntu 22.04 LTS. Installations currently running
+> Mail-in-a-Box v76 must upgrade to S5 Mail 2026.08.1 before moving to a future
+> release. New installations are not recommended until the Debian 13-based
+> version of S5 Mail is released.
 
-**Please see [https://mailinabox.email](https://mailinabox.email) for the project's website and setup guide!**
+For a fresh Ubuntu 22.04 test system:
 
-* * *
+```sh
+curl -fsSL https://raw.githubusercontent.com/wtarit/s5mail/v2026.08.1/setup/bootstrap.sh | sudo -E env SOURCE=https://github.com/wtarit/s5mail TAG=v2026.08.1 bash
+```
 
-Our goals are to:
-
-* Make deploying a good mail server easy.
-* Promote [decentralization](http://redecentralize.org/), innovation, and privacy on the web.
-* Have automated, auditable, and [idempotent](https://web.archive.org/web/20190518072631/https://sharknet.us/2014/02/01/automated-configuration-management-challenges-with-idempotency/) configuration.
-* **Not** make a totally unhackable, NSA-proof server.
-* **Not** make something customizable by power users.
-
-Additionally, this project has a [Code of Conduct](CODE_OF_CONDUCT.md), which supersedes the goals above. Please review it when joining our community.
-
+S5 Mail provisions a complete, self-hosted mail server and control panel.
 
 In The Box
 ----------
 
-Mail-in-a-Box turns a fresh Ubuntu 22.04 LTS 64-bit machine into a working mail server by installing and configuring various components.
+S5 Mail turns a fresh Ubuntu 22.04 LTS 64-bit machine into a working mail server by installing and configuring various components.
 
 It is a one-click email appliance. There are no user-configurable setup options. It "just works."
 
@@ -44,32 +41,7 @@ It also includes system management tools:
 
 Internationalized domain names are supported and configured easily (but SMTPUTF8 is not supported, unfortunately).
 
-For more information on how Mail-in-a-Box handles your privacy, see the [security details page](security.md).
-
-
-Installation
-------------
-
-See the [setup guide](https://mailinabox.email/guide.html) for detailed, user-friendly instructions.
-
-For experts, start with a completely fresh (really, I mean it) Ubuntu 22.04 LTS 64-bit machine. On the machine...
-
-Clone this repository and checkout the tag corresponding to the most recent release (which you can find in the tags or releases lists on GitHub):
-
-	$ git clone https://github.com/mail-in-a-box/mailinabox
-	$ cd mailinabox
-	$ git checkout TAGNAME
-
-Begin the installation.
-
-	$ sudo setup/start.sh
-
-The installation will install, uninstall, and configure packages to turn the machine into a working, good mail server.
-
-Migrating from upstream
------------------------
-
-Before switching an existing installation to this fork, first upgrade it to upstream Mail-in-a-Box v76 and run upstream setup to completion. Do not switch directly from an older upstream release. This fork assumes the installation already has Nextcloud 26, does not include the legacy Nextcloud 20–25 upgrade chain, and upgrades Nextcloud through each required major release from there.
+For more information on how S5 Mail handles your privacy, see the [security details page](security.md).
 
 Optional services
 -----------------
@@ -78,33 +50,21 @@ Some services can be enabled or disabled during setup. The configurable options 
 
 * Postgrey (enabled by default; disable with `--disable-postgrey`)
 
-For help, DO NOT contact Josh directly --- I don't do tech support by email or tweet (no exceptions).
+Report S5 Mail bugs and development questions through this repository's
+[GitHub Issues](https://github.com/wtarit/s5mail/issues).
 
-Post your question on the [discussion forum](https://discourse.mailinabox.email/) instead, where maintainers and Mail-in-a-Box users may be able to help you.
-
-Note that while we want everything to "just work," we can't control the rest of the Internet. Other mail services might block or spam-filter email sent from your Mail-in-a-Box.
-This is a challenge faced by everyone who runs their own mail server, with or without Mail-in-a-Box. See our discussion forum for tips about that.
+Note that while we want everything to "just work," we can't control the rest of the Internet. Other mail services might block or spam-filter email sent from your S5 Mail server.
+This is a challenge faced by everyone who runs their own mail server.
 
 
 Contributing and Development
 ----------------------------
 
-Mail-in-a-Box is an open source project. Your contributions and pull requests are welcome. See [CONTRIBUTING](CONTRIBUTING.md) to get started. 
+S5 Mail is an open source project. Contributions and pull requests are welcome. See [CONTRIBUTING](CONTRIBUTING.md) to get started.
 
 
-The Acknowledgements
---------------------
+Origin
+------
 
-This project was inspired in part by the ["NSA-proof your email in 2 hours"](http://sealedabstract.com/code/nsa-proof-your-e-mail-in-2-hours/) blog post by Drew Crawford, [Sovereign](https://github.com/sovereign/sovereign) by Alex Payne, and conversations with <a href="https://twitter.com/shevski" target="_blank">@shevski</a>, <a href="https://github.com/konklone" target="_blank">@konklone</a>, and <a href="https://github.com/gregelin" target="_blank">@GregElin</a>.
-
-Mail-in-a-Box is similar to [iRedMail](http://www.iredmail.org/) and [Modoboa](https://github.com/tonioo/modoboa).
-
-
-The History
------------
-
-* In 2007 I wrote a relatively popular Mozilla Thunderbird extension that added client-side SPF and DKIM checks to mail to warn users about possible phishing: [add-on page](https://addons.mozilla.org/en-us/thunderbird/addon/sender-verification-anti-phish/), [source](https://github.com/JoshData/thunderbird-spf).
-* In August 2013 I began Mail-in-a-Box by combining my own mail server configuration with the setup in ["NSA-proof your email in 2 hours"](http://sealedabstract.com/code/nsa-proof-your-e-mail-in-2-hours/) and making the setup steps reproducible with bash scripts.
-* Mail-in-a-Box was a semifinalist in the 2014 [Knight News Challenge](https://www.newschallenge.org/challenge/2014/submissions/mail-in-a-box), but it was not selected as a winner.
-* Mail-in-a-Box hit the front page of Hacker News in [April](https://news.ycombinator.com/item?id=7634514) 2014, [September](https://news.ycombinator.com/item?id=8276171) 2014, [May](https://news.ycombinator.com/item?id=9624267) 2015, and [November](https://news.ycombinator.com/item?id=13050500) 2016.
-* FastCompany mentioned Mail-in-a-Box a [roundup of privacy projects](http://www.fastcompany.com/3047645/your-own-private-cloud) on June 26, 2015.
+S5 Mail was originally forked from
+[Mail-in-a-Box v76](https://github.com/mail-in-a-box/mailinabox/tree/v76).

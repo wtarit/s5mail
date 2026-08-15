@@ -2,7 +2,7 @@
 
 ## Project context
 
-- This repository is an independently maintained Mail-in-a-Box fork. Prioritize this project's requirements, maintainability, and user experience; compatibility with upstream is not a requirement.
+- Prioritize S5 Mail's requirements, maintainability, and user experience; compatibility with other projects is not a requirement.
 - The project provisions and manages a complete mail server appliance on Ubuntu. Changes can affect live mail delivery, DNS, authentication, TLS, backups, networking, and stored user data, so treat operational behavior and upgrades carefully.
 - Setup must remain repeatable and idempotent. Re-running provisioning on an existing installation should converge on the intended state without losing user data or duplicating configuration.
 
