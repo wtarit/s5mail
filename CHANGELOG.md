@@ -11,6 +11,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/2.0.0/).
 
 ## [Unreleased]
 
+## [2026.08.2] - 2026-08-15
+
+### Fixed
+
+- Prevented Nextcloud web requests and scheduled jobs from locking its SQLite
+  database during backup, schema migration, and deferred maintenance work.
+- Made interrupted Nextcloud upgrades resume unfinished database maintenance
+  even when the recorded application version already advanced.
+
+### Upgrade notes
+
+- This release supersedes 2026.08.1 as the final S5 Mail release for Ubuntu
+  22.04 LTS.
+- Installations upgrading from Mail-in-a-Box v76 should use this release.
+
 ## [2026.08.1] - 2026-08-15
 
 ### Added
@@ -48,5 +63,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/2.0.0/).
 - New installations are not recommended until the Debian 13-based release is
   available.
 
-[Unreleased]: https://github.com/wtarit/s5mail/compare/v2026.08.1...HEAD
+[Unreleased]: https://github.com/wtarit/s5mail/compare/v2026.08.2...HEAD
+[2026.08.2]: https://github.com/wtarit/s5mail/releases/tag/v2026.08.2
 [2026.08.1]: https://github.com/wtarit/s5mail/releases/tag/v2026.08.1
