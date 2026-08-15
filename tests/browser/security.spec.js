@@ -11,8 +11,8 @@ test("reflected API errors render literally without executing HTML", async ({ pa
     route.fulfill({ status: 400, contentType: "text/plain", body: payload }),
   );
   await visitPanel(page, "aliases", "Aliases");
-  await page.locator("#addaliasAddress").fill("unsafe@mailinabox.lan");
-  await page.locator("#addaliasForwardsTo").fill("me@mailinabox.lan");
+  await page.locator("#addaliasAddress").fill("unsafe@s5mail.lan");
+  await page.locator("#addaliasForwardsTo").fill("me@s5mail.lan");
   await page.getByRole("button", { name: "Add Alias" }).click();
   const body = page.locator("#global_modal .modal-body");
   await expect(body).toContainText(payload);

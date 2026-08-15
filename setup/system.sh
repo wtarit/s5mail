@@ -1,5 +1,5 @@
 #!/bin/bash
-source /etc/mailinabox.conf
+source /etc/s5mail.conf
 source setup/functions.sh # load our functions
 
 # Basic System Configuration
@@ -122,7 +122,7 @@ echo "Updating system packages..."
 hide_output apt-get update --allow-releaseinfo-change
 apt_get_quiet upgrade
 
-# Old kernels pile up over time and take up a lot of disk space, and because of Mail-in-a-Box
+# Old kernels pile up over time and take up a lot of disk space, and because of S5 Mail
 # changes there may be other packages that are no longer needed. Clear out anything apt knows
 # is safe to delete.
 
@@ -173,7 +173,7 @@ fi
 if [ -z "${NONINTERACTIVE:-}" ]; then
 	if [ ! -f /etc/timezone ] || [ -n "${FIRST_TIME_SETUP:-}" ]; then
 		# If the file is missing or this is the user's first time running
-		# Mail-in-a-Box setup, run the interactive timezone configuration
+		# S5 Mail setup, run the interactive timezone configuration
 		# tool.
 		dpkg-reconfigure tzdata
 		restart_service rsyslog
@@ -244,10 +244,19 @@ pollinate  -q -r
 
 # Between these two, we really ought to be all set.
 
-# We need an ssh key to store backups via rsync, if it doesn't exist create one
-if [ ! -f /root/.ssh/id_rsa_miab ]; then
+# Copy the previous backup key to the S5 Mail name so existing rsync
+# destinations continue to recognize the same key and rollback remains safe.
+if [ -f /root/.ssh/id_rsa_miab ] && [ ! -f /root/.ssh/id_rsa_s5mail ]; then
+	cp -p /root/.ssh/id_rsa_miab /root/.ssh/id_rsa_s5mail
+	if [ -f /root/.ssh/id_rsa_miab.pub ]; then
+		cp -p /root/.ssh/id_rsa_miab.pub /root/.ssh/id_rsa_s5mail.pub
+	fi
+fi
+
+# We need an SSH key to store backups via rsync. Create one if it doesn't exist.
+if [ ! -f /root/.ssh/id_rsa_s5mail ]; then
 	echo 'Creating SSH key for backup…'
-	ssh-keygen -t rsa -b 2048 -a 100 -f /root/.ssh/id_rsa_miab -N '' -q
+	ssh-keygen -t rsa -b 2048 -a 100 -f /root/.ssh/id_rsa_s5mail -N '' -q
 fi
 
 # ### Package maintenance
@@ -367,11 +376,20 @@ systemctl restart systemd-resolved
 # Configure the Fail2Ban installation to prevent dumb bruce-force attacks against dovecot, postfix, ssh, etc.
 rm -f /etc/fail2ban/jail.local # we used to use this file but don't anymore
 rm -f /etc/fail2ban/jail.d/defaults-debian.conf # removes default config so we can manage all of fail2ban rules in one config
+rm -f /etc/fail2ban/jail.d/mailinabox.conf # replaced by the S5 Mail-named configuration
+for legacy_filter in \
+	miab-management-daemon.conf \
+	miab-munin.conf \
+	miab-owncloud.conf \
+	miab-postfix-submission.conf \
+	miab-roundcube.conf; do
+	rm -f "/etc/fail2ban/filter.d/$legacy_filter"
+done
 cat conf/fail2ban/jails.conf \
     | sed "s/PUBLIC_IPV6/$PUBLIC_IPV6/g" \
 	| sed "s/PUBLIC_IP/$PUBLIC_IP/g" \
 	| sed "s#STORAGE_ROOT#$STORAGE_ROOT#" \
-	> /etc/fail2ban/jail.d/mailinabox.conf
+	> /etc/fail2ban/jail.d/s5mail.conf
 cp -f conf/fail2ban/filter.d/* /etc/fail2ban/filter.d/
 
 # On first installation, the log files that the jails look at don't all exist.

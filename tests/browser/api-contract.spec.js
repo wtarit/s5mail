@@ -8,20 +8,20 @@ test("fetch sends auth, AJAX, and URL-encoded form headers", async ({ page }) =>
     await route.fulfill({ status: 200, contentType: "text/plain", body: "test response" });
   });
   await visitPanel(page, "users", "Users");
-  await page.locator("#adduserEmail").fill("encoded+test@mailinabox.lan");
+  await page.locator("#adduserEmail").fill("encoded+test@s5mail.lan");
   await page.locator("#adduserPassword").fill("TestPass123456");
   await page.getByRole("button", { name: "Add User" }).click();
   await expect(page.locator("#global_modal")).toContainText("test response");
   expect(captured.headers().authorization).toMatch(/^Basic /);
   expect(captured.headers()["x-requested-with"]).toBe("XMLHttpRequest");
   expect(captured.headers()["content-type"]).toContain("application/x-www-form-urlencoded");
-  expect(captured.postData()).toContain("email=encoded%2Btest%40mailinabox.lan");
+  expect(captured.postData()).toContain("email=encoded%2Btest%40s5mail.lan");
 });
 
 test("fetch sends raw DNS bodies and parses JSON responses", async ({ page }) => {
   await login(page);
   let captured;
-  await page.route("**/admin/dns/custom/raw.mailinabox.lan/TXT", async (route) => {
+  await page.route("**/admin/dns/custom/raw.s5mail.lan/TXT", async (route) => {
     captured = route.request();
     await route.fulfill({ status: 200, contentType: "text/plain", body: "set" });
   });
@@ -35,7 +35,7 @@ test("fetch sends raw DNS bodies and parses JSON responses", async ({ page }) =>
   expect(captured.headers()["content-type"]).toContain("text/plain");
   expect(captured.postData()).toBe("unencoded & literal");
   await visitPanel(page, "users", "Users");
-  await expect(page.locator("#user_table")).toContainText("me@mailinabox.lan");
+  await expect(page.locator("#user_table")).toContainText("me@s5mail.lan");
 });
 
 test("HTTP failures call the error path", async ({ page }) => {
@@ -45,8 +45,8 @@ test("HTTP failures call the error path", async ({ page }) => {
     route.fulfill({ status: 503, contentType: "text/plain", body: "service unavailable" }),
   );
   await visitPanel(page, "aliases", "Aliases");
-  await page.locator("#addaliasAddress").fill("failure@mailinabox.lan");
-  await page.locator("#addaliasForwardsTo").fill("me@mailinabox.lan");
+  await page.locator("#addaliasAddress").fill("failure@s5mail.lan");
+  await page.locator("#addaliasForwardsTo").fill("me@s5mail.lan");
   await page.getByRole("button", { name: "Add Alias" }).click();
   await expect(page.locator("#global_modal")).toContainText("service unavailable");
 });

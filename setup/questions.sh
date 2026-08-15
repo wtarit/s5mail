@@ -12,11 +12,11 @@ if [ -z "${NONINTERACTIVE:-}" ]; then
 		apt_get_quiet install dialog || exit 1
 	fi
 
-	message_box "Mail-in-a-Box Installation" \
-		"Hello and thanks for deploying a Mail-in-a-Box!
+	message_box "S5 Mail Installation" \
+		"Hello and thanks for deploying S5 Mail!
 		\n\nI'm going to ask you a few questions.
-		\n\nTo change your answers later, just run 'sudo mailinabox' from the command line.
-		\n\nNOTE: You should only install this on a brand new Ubuntu installation 100% dedicated to Mail-in-a-Box. Mail-in-a-Box will, for example, remove apache2."
+		\n\nTo change your answers later, just run 'sudo s5mail' from the command line.
+		\n\nNOTE: You should only install this on a brand new Ubuntu installation 100% dedicated to S5 Mail. S5 Mail will, for example, remove apache2."
 fi
 
 # The box needs a name.
@@ -46,7 +46,7 @@ you really want.
 			# user hit ESC/cancel
 			exit
 		fi
-		while ! "$MIAB_PYTHON" management/mailconfig.py validate-email "$EMAIL_ADDR"
+		while ! "$S5MAIL_PYTHON" management/mailconfig.py validate-email "$EMAIL_ADDR"
 		do
 			input_box "Your Email Address" \
 				"That's not a valid email address.\n\nWhat email address are you setting this box up to manage?" \
@@ -156,7 +156,7 @@ if [ -z "${NONINTERACTIVE:-}" ] && [ "$SMTP_RELAY_OPTION_SET" = "0" ]; then
 			SMTP_RELAY_USERNAME
 		if [ "$SMTP_RELAY_USERNAME_EXITCODE" != "0" ]; then exit; fi
 
-		if "$MIAB_PYTHON" management/smtp_relay.py has-credentials \
+		if "$S5MAIL_PYTHON" management/smtp_relay.py has-credentials \
 			--host "$SMTP_RELAY_HOST" \
 			--port "$SMTP_RELAY_PORT" \
 			--security "$SMTP_RELAY_SECURITY" \
@@ -308,6 +308,6 @@ if [ "$PRIVATE_IPV6" != "$PUBLIC_IPV6" ]; then
 	echo "Private IPv6 Address: $PRIVATE_IPV6"
 fi
 if [ -f /usr/bin/git ] && [ -d .git ]; then
-	echo "Mail-in-a-Box Version: $(git describe --always)"
+	echo "S5 Mail Version: $(git describe --always)"
 fi
 echo

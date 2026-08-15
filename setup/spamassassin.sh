@@ -9,7 +9,7 @@
 # In order to move spam automatically into the Spam folder we use the dovecot sieve
 # plugin.
 
-source /etc/mailinabox.conf # get global vars
+source /etc/s5mail.conf # get global vars
 source setup/functions.sh # load our functions
 
 # Install packages and basic configuration
@@ -81,7 +81,8 @@ tools/editconf.py /etc/spamassassin/local.cf -s \
 
 escapedprimaryhostname="${PRIMARY_HOSTNAME//./\\.}"
 
-cat > /etc/spamassassin/miab_spf_dmarc.cf << EOF
+rm -f /etc/spamassassin/miab_spf_dmarc.cf
+cat > /etc/spamassassin/s5mail_spf_dmarc.cf << EOF
 # Evaluate DMARC Authentication-Results
 header DMARC_PASS Authentication-Results =~ /$escapedprimaryhostname; dmarc=pass/
 describe DMARC_PASS DMARC check passed
@@ -194,4 +195,3 @@ chmod 770 "$STORAGE_ROOT/mail/spamassassin"
 # Kick services.
 restart_service spampd
 restart_service dovecot
-

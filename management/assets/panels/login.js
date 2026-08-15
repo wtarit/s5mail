@@ -88,11 +88,11 @@ function do_login() {
         // Remember the credentials.
         if (typeof localStorage != "undefined" && typeof sessionStorage != "undefined") {
           if (query("#loginRemember").checked) {
-            localStorage.setItem("miab-cp-credentials", JSON.stringify(api_credentials));
-            sessionStorage.removeItem("miab-cp-credentials");
+            localStorage.setItem("s5mail-cp-credentials", JSON.stringify(api_credentials));
+            sessionStorage.removeItem("s5mail-cp-credentials");
           } else {
-            localStorage.removeItem("miab-cp-credentials");
-            sessionStorage.setItem("miab-cp-credentials", JSON.stringify(api_credentials));
+            localStorage.removeItem("s5mail-cp-credentials");
+            sessionStorage.setItem("s5mail-cp-credentials", JSON.stringify(api_credentials));
           }
         }
 
@@ -155,5 +155,5 @@ document.querySelector("#loginForm").addEventListener("submit", (event) => {
   event.preventDefault();
   do_login();
 });
-document.addEventListener("miab:credentials-changed", show_hide_menus);
+document.addEventListener("s5mail:credentials-changed", show_hide_menus);
 export { show_hide_menus };

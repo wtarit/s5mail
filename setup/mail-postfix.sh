@@ -28,7 +28,7 @@
 # configuration.
 
 source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
 # ### Install packages.
 
@@ -62,7 +62,7 @@ tools/editconf.py /etc/postfix/main.cf \
 	smtp_bind_address="$PRIVATE_IP" \
 	smtp_bind_address6="$PRIVATE_IPV6" \
 	myhostname="$PRIMARY_HOSTNAME"\
-	smtpd_banner="\$myhostname ESMTP Hi, I'm a Mail-in-a-Box (Ubuntu/Postfix; see https://mailinabox.email/)" \
+	smtpd_banner="\$myhostname ESMTP S5 Mail (Ubuntu/Postfix)" \
 	mydestination=localhost
 
 # Tweak some queue settings:
@@ -78,7 +78,7 @@ tools/editconf.py /etc/postfix/main.cf \
 # This beecame supported in a backported fix in package version 3.6.4-1ubuntu1.3. It is
 # unnecessary in Postfix 3.9+ where this is the default. The "short-term" workarounds
 # that we previously had are reverted to postfix defaults (though smtpd_discard_ehlo_keywords
-# was never included in a released version of Mail-in-a-Box).
+# was never included in a released version of S5 Mail).
 tools/editconf.py /etc/postfix/main.cf -e \
        smtpd_data_restrictions= \
        smtpd_discard_ehlo_keywords=
@@ -217,7 +217,7 @@ if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
 			"$SMTP_RELAY_USERNAME" \
 			"$SMTP_RELAY_PASSWORD" > /etc/postfix/sasl_passwd)
 	fi
-	if ! "$MIAB_PYTHON" management/smtp_relay.py has-credentials \
+	if ! "$S5MAIL_PYTHON" management/smtp_relay.py has-credentials \
 		--host "$SMTP_RELAY_HOST" \
 		--port "$SMTP_RELAY_PORT" \
 		--security "$SMTP_RELAY_SECURITY" \
@@ -269,7 +269,7 @@ unset SMTP_RELAY_PASSWORD
 # virtual_transport to `lmtp:unix:private/dovecot-lmtp`.
 tools/editconf.py /etc/postfix/main.cf "virtual_transport=lmtp:[127.0.0.1]:10025"
 # Clear the lmtp_destination_recipient_limit setting which in previous
-# versions of Mail-in-a-Box was set to 1 because of a spampd bug.
+# previous releases was set to 1 because of a spampd bug.
 # See https://github.com/mail-in-a-box/mailinabox/issues/1523.
 tools/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit=
 
@@ -334,10 +334,11 @@ chown -R postgrey:postgrey "$STORAGE_ROOT/mail/postgrey/"
 chmod 700 "$STORAGE_ROOT/mail/postgrey/"{,db}
 
 # We are going to setup a newer whitelist for postgrey, the version included in the distribution is old
-cat > /etc/cron.daily/mailinabox-postgrey-whitelist << EOF;
+rm -f /etc/cron.daily/mailinabox-postgrey-whitelist
+cat > /etc/cron.daily/s5mail-postgrey-whitelist << EOF;
 #!/bin/bash
 
-# Mail-in-a-Box
+# S5 Mail
 
 # check we have a postgrey_whitelist_clients file and that it is not older than 28 days
 if [ ! -f /etc/postgrey/whitelist_clients ] || find /etc/postgrey/whitelist_clients -mtime +28 | grep -q '.' ; then
@@ -356,11 +357,12 @@ if [ ! -f /etc/postgrey/whitelist_clients ] || find /etc/postgrey/whitelist_clie
     fi
 fi
 EOF
-chmod +x /etc/cron.daily/mailinabox-postgrey-whitelist
-/etc/cron.daily/mailinabox-postgrey-whitelist
+chmod +x /etc/cron.daily/s5mail-postgrey-whitelist
+/etc/cron.daily/s5mail-postgrey-whitelist
 else
 	echo "Disabling Postgrey..."
 	rm -f /etc/cron.daily/mailinabox-postgrey-whitelist
+	rm -f /etc/cron.daily/s5mail-postgrey-whitelist
 	systemctl disable --now postgrey >/dev/null 2>&1 || true
 	apt_get_quiet purge postgrey
 fi

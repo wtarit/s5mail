@@ -1,11 +1,11 @@
 #!/bin/bash
 
 source setup/functions.sh
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
-echo "Installing Mail-in-a-Box system management daemon..."
+echo "Installing S5 Mail system management daemon..."
 
-if [ -z "${MIAB_UV:-}" ]; then
+if [ -z "${S5MAIL_UV:-}" ]; then
 	# Allow this script to be run directly during development or recovery.
 	source setup/python.sh
 fi
@@ -23,7 +23,7 @@ fi
 # provisions TLS certificates.
 apt_install build-essential gnupg certbot rsync
 
-inst_dir=/usr/local/lib/mailinabox
+inst_dir=/usr/local/lib/s5mail
 mkdir -p "$inst_dir"
 venv="$inst_dir/env"
 
@@ -78,28 +78,33 @@ export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LC_TYPE=en_US.UTF-8
 
-mkdir -p /var/lib/mailinabox
-tr -cd '[:xdigit:]' < /dev/urandom | head -c 32 > /var/lib/mailinabox/api.key
-chmod 640 /var/lib/mailinabox/api.key
+mkdir -p /var/lib/s5mail
+tr -cd '[:xdigit:]' < /dev/urandom | head -c 32 > /var/lib/s5mail/api.key
+chmod 640 /var/lib/s5mail/api.key
 
 export PYTHONPATH=$PWD/management
 exec "$venv/bin/gunicorn" -b 127.0.0.1:10222 -w 1 --timeout 630 wsgi:app
 EOF
 chmod +x $inst_dir/start
-cp --remove-destination conf/mailinabox.service /lib/systemd/system/mailinabox.service # target was previously a symlink so remove it first
-hide_output systemctl link -f /lib/systemd/system/mailinabox.service
+if [ -e /lib/systemd/system/mailinabox.service ] || [ -L /lib/systemd/system/mailinabox.service ]; then
+	systemctl disable --now mailinabox.service >/dev/null 2>&1 || true
+	rm -f /lib/systemd/system/mailinabox.service
+fi
+cp --remove-destination conf/s5mail.service /lib/systemd/system/s5mail.service # target may be a symlink, so remove it first
+hide_output systemctl link -f /lib/systemd/system/s5mail.service
 hide_output systemctl daemon-reload
-hide_output systemctl enable mailinabox.service
+hide_output systemctl enable s5mail.service
 
 # Perform nightly tasks at 3am in system time: take a backup, run
 # status checks and email the administrator any changes.
 
-minute=$((RANDOM % 60))  # avoid overloading mailinabox.email
-cat > /etc/cron.d/mailinabox-nightly << EOF;
-# Mail-in-a-Box --- Do not edit / will be overwritten on update.
+minute=$((RANDOM % 60))  # spread nightly update checks across the hour
+rm -f /etc/cron.d/mailinabox-nightly
+cat > /etc/cron.d/s5mail-nightly << EOF;
+# S5 Mail --- Do not edit / will be overwritten on update.
 # Run nightly tasks: backup, status checks.
 $minute 1 * * *	root	(cd $PWD && management/daily_tasks.sh)
 EOF
 
 # Start the management server.
-restart_service mailinabox
+restart_service s5mail

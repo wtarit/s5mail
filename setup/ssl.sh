@@ -22,7 +22,7 @@
 # provides Perfect Forward Secrecy.
 
 source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
 # Show a status line if we are going to take any action in this file.
 if  [ ! -f /usr/bin/openssl ] \
@@ -98,10 +98,11 @@ if [ ! -f "$STORAGE_ROOT/ssl/dh2048.pem" ]; then
 fi
 
 # Cleanup expired SSL certificates from $STORAGE_ROOT/ssl daily
-cat > /etc/cron.daily/mailinabox-ssl-cleanup << EOF;
+rm -f /etc/cron.daily/mailinabox-ssl-cleanup
+cat > /etc/cron.daily/s5mail-ssl-cleanup << EOF;
 #!/bin/bash
-# Mail-in-a-Box
+# S5 Mail
 # Cleanup expired SSL certificates
 $(pwd)/tools/ssl_cleanup
 EOF
-chmod +x /etc/cron.daily/mailinabox-ssl-cleanup
+chmod +x /etc/cron.daily/s5mail-ssl-cleanup

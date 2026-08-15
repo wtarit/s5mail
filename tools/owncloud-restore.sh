@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # This script will restore the backup made during an installation
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
 if [ -z "$1" ]; then
 	echo "Usage: owncloud-restore.sh <backup directory>"

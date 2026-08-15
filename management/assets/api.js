@@ -86,7 +86,7 @@ export async function api(url, method, data, callback, callbackError, extraHeade
     const panel = getCurrentPanel();
     clearCredentials();
     showPanel("login");
-    document.dispatchEvent(new CustomEvent("miab:credentials-changed"));
+    document.dispatchEvent(new CustomEvent("s5mail:credentials-changed"));
     setSwitchBackPanel(panel);
     return false;
   }

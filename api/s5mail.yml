@@ -1,27 +1,24 @@
 openapi: 3.0.3
 info:
-  title: Mail-in-a-Box
+  title: S5 Mail
   description: |
-    Mail-in-a-Box API HTTP specification.
+    S5 Mail API HTTP specification.
 
     # Introduction
     This API is documented in [**OpenAPI format**](http://spec.openapis.org/oas/v3.0.3).
-    ([View the full HTTP specification](https://raw.githubusercontent.com/mail-in-a-box/mailinabox/api-spec/api/mailinabox.yml).)
+    ([View the full HTTP specification](https://raw.githubusercontent.com/wtarit/s5mail/main/api/s5mail.yml).)
 
     All endpoints are relative to `https://{host}/admin` and are secured with [`Basic Access` authentication](https://en.wikipedia.org/wiki/Basic_access_authentication). If you have multi-factor authentication enabled, authentication with a `user:password` combination will fail unless a valid OTP is supplied via the `x-auth-token` header. Authentication via a `user:user_key` pair is possible without the header being present.
   contact:
-    name: Mail-in-a-Box support
-    url: https://mailinabox.email/
+    name: S5 Mail support
+    url: https://github.com/wtarit/s5mail/issues
   license:
     name: CC0 1.0 Universal
     url: https://creativecommons.org/publicdomain/zero/1.0/legalcode
   version: 0.51.0
-  x-logo:
-    url: https://mailinabox.email/static/logo.png
-    altText: Mail-in-a-Box logo
 externalDocs:
-  description: Find out more about Mail-in-a-box.
-  url: https://mailinabox.email/
+  description: Find out more about S5 Mail.
+  url: https://github.com/wtarit/s5mail
 servers:
   - url: https://{host}/admin
     variables:
@@ -149,7 +146,7 @@ paths:
       tags:
         - System
       summary: Get system version
-      description: Returns installed Mail-in-a-Box version.
+      description: Returns installed S5 Mail version.
       operationId: getSystemVersion
       x-codeSamples:
         - lang: curl
@@ -163,24 +160,24 @@ paths:
             text/html:
               schema:
                 $ref: '#/components/schemas/SystemVersionResponse'
-              example: v0.46
+              example: v2026.08.1
         403:
           description: Forbidden
           content:
             text/html:
               schema:
                 type: string
-  /system/latest-upstream-version:
+  /system/latest-version:
     post:
       tags:
         - System
-      summary: Get system upstream version
-      description: Returns Mail-in-a-Box upstream version.
-      operationId: getSystemUpstreamVersion
+      summary: Get latest system version
+      description: Returns the latest S5 Mail version.
+      operationId: getLatestSystemVersion
       x-codeSamples:
         - lang: curl
           source: |
-            curl -X POST "https://{host}/admin/system/latest-upstream-version" \
+            curl -X POST "https://{host}/admin/system/latest-version" \
               -u "<email>:<password>"
       responses:
         200:
@@ -188,8 +185,8 @@ paths:
           content:
             text/html:
               schema:
-                $ref: '#/components/schemas/SystemVersionUpstreamResponse'
-              example: v0.47
+                $ref: '#/components/schemas/SystemLatestVersionResponse'
+              example: v2026.08.1
         403:
           description: Forbidden
           content:
@@ -2078,7 +2075,7 @@ components:
           minimum: 0
           maximum: 1
           example: 1
-          description: Force an update even if mailinabox detects no changes are required.
+          description: Force an update even if S5 Mail detects no changes are required.
       description: DNS update request.
     DNSUpdateResponse:
       type: string
@@ -2308,11 +2305,11 @@ components:
     SystemVersionResponse:
       type: string
       description: System version response.
-      example: v0.46
-    SystemVersionUpstreamResponse:
+      example: v2026.08.1
+    SystemLatestVersionResponse:
       type: string
-      description: System version upstream response.
-      example: v0.47
+      description: Latest S5 Mail version response.
+      example: v2026.08.1
     SystemUpdatesResponse:
       type: string
       description: System updates response.

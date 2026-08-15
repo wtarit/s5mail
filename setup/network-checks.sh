@@ -22,7 +22,7 @@ fi
 if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
 	echo "Checking the authenticated SMTP relay..."
 	if [ -n "${SMTP_RELAY_PASSWORD:-}" ]; then
-		if ! printf '%s\n' "$SMTP_RELAY_PASSWORD" | "$MIAB_PYTHON" management/smtp_relay.py check \
+		if ! printf '%s\n' "$SMTP_RELAY_PASSWORD" | "$S5MAIL_PYTHON" management/smtp_relay.py check \
 			--host "$SMTP_RELAY_HOST" \
 			--port "$SMTP_RELAY_PORT" \
 			--security "$SMTP_RELAY_SECURITY" \
@@ -30,7 +30,7 @@ if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
 			--password-stdin; then
 			exit 1
 		fi
-	elif ! "$MIAB_PYTHON" management/smtp_relay.py check \
+	elif ! "$S5MAIL_PYTHON" management/smtp_relay.py check \
 		--host "$SMTP_RELAY_HOST" \
 		--port "$SMTP_RELAY_PORT" \
 		--security "$SMTP_RELAY_SECURITY" \
@@ -52,7 +52,7 @@ else
 		echo "cannot continue."
 		echo
 		echo "Associate a different IP address with this machine if possible."
-		echo "Many residential network IP addresses are listed, so Mail-in-a-Box"
+		echo "Many residential network IP addresses are listed, so S5 Mail"
 		echo "typically cannot be used on a residential Internet connection."
 		echo
 		exit 1

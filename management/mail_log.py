@@ -1,4 +1,4 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 import argparse
 import datetime
 import gzip
@@ -96,7 +96,7 @@ def scan_mail_log(env):
     This function scans the 2 most recent mail log files in /var/log/.
 
     Args:
-        env (dict): Dictionary containing MiaB settings
+        env (dict): Dictionary containing S5 Mail settings
 
     """
 
@@ -109,7 +109,7 @@ def scan_mail_log(env):
         "logins": OrderedDict(),  # Data about login activity
         "postgrey": {},  # Data about greylisting of email addresses
         "rejected": OrderedDict(),  # Emails that were blocked
-        "known_addresses": None,  # Addresses handled by the Miab installation
+        "known_addresses": None,  # Addresses handled by the S5 Mail installation
         "other-services": set(),
     }
 
@@ -793,8 +793,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Scan the mail log files for interesting data. By default, this script "
                     "shows today's incoming and outgoing mail statistics. This script was ("
-                    "re)written for the Mail-in-a-box email server."
-                    "https://github.com/mail-in-a-box/mailinabox",
+                    "re)written for the S5 Mail email server."
+                    "https://github.com/wtarit/s5mail",
         add_help=False
     )
 

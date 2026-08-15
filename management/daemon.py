@@ -1,14 +1,14 @@
-#!/usr/local/lib/mailinabox/env/bin/python3
+#!/usr/local/lib/s5mail/env/bin/python3
 #
 # The API can be accessed on the command line, e.g. use `curl` like so:
-#    curl --user $(</var/lib/mailinabox/api.key): http://localhost:10222/mail/users
+#    curl --user $(</var/lib/s5mail/api.key): http://localhost:10222/mail/users
 #
-# During development, you can start the Mail-in-a-Box control panel
+# During development, you can start the S5 Mail control panel
 # by running this script, e.g.:
 #
-# service mailinabox stop # stop the system process
+# service s5mail stop # stop the system process
 # DEBUG=1 management/daemon.py
-# service mailinabox start # when done debugging, start it up again
+# service s5mail start # when done debugging, start it up again
 
 import os, os.path, re, json, time
 import multiprocessing.pool
@@ -566,12 +566,14 @@ def system_version():
 	except Exception as e:
 		return (str(e), 500)
 
+@app.route('/system/latest-version', methods=["POST"])
+# Preserve the previous API path for existing clients.
 @app.route('/system/latest-upstream-version', methods=["POST"])
 @authorized_personnel_only
-def system_latest_upstream_version():
-	from status_checks import get_latest_miab_version
+def system_latest_version():
+	from status_checks import get_latest_s5mail_version
 	try:
-		return get_latest_miab_version()
+		return get_latest_s5mail_version()
 	except Exception as e:
 		return (str(e), 500)
 
@@ -726,7 +728,7 @@ def munin_cgi(filename):
 	munin-cgi-graph has several failure modes. Some write HTTP Status headers and
 	others return nonzero exit codes.
 	Situating munin_cgi between the user-agent and munin-cgi-graph enables keeping
-	the cgi script behind mailinabox's auth mechanisms and avoids additional
+	the CGI script behind S5 Mail's authentication mechanisms and avoids additional
 	support infrastructure like spawn-fcgi.
 	"""
 
@@ -776,7 +778,7 @@ def log_failed_login(request):
 
 	# We need to add a timestamp to the log message, otherwise /dev/log will eat the "duplicate"
 	# message.
-	app.logger.warning("Mail-in-a-Box Management Daemon: Failed login attempt from ip %s - timestamp %s", ip, time.time())
+	app.logger.warning("S5 Mail Management Daemon: Failed login attempt from ip %s - timestamp %s", ip, time.time())
 
 
 # APP

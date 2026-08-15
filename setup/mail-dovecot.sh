@@ -16,11 +16,11 @@
 # using the LMTP protocol.
 
 source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
 
 # Install packages for dovecot. These are all core dovecot plugins,
-# but dovecot-lucene is packaged by *us* in the Mail-in-a-Box PPA,
+# but dovecot-lucene is packaged by *us* in the S5 Mail PPA,
 # not by Ubuntu.
 
 echo "Installing Dovecot (IMAP server)..."

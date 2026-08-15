@@ -1,8 +1,8 @@
 import { expect, login, test, visitPanel } from "./fixtures.js";
 
-const suffix = process.env.MIAB_E2E_RUN_ID || "native-js";
-const alias = `${suffix}-alias@mailinabox.lan`;
-const dnsName = `${suffix}.mailinabox.lan`;
+const suffix = process.env.S5MAIL_E2E_RUN_ID || "native-js";
+const alias = `${suffix}-alias@s5mail.lan`;
+const dnsName = `${suffix}.s5mail.lan`;
 
 async function post(request, path, credentials, form) {
   return request.post(path, {
@@ -17,7 +17,8 @@ async function post(request, path, credentials, form) {
 async function credentials(page) {
   return page.evaluate(() =>
     JSON.parse(
-      sessionStorage.getItem("miab-cp-credentials") || localStorage.getItem("miab-cp-credentials"),
+      sessionStorage.getItem("s5mail-cp-credentials") ||
+        localStorage.getItem("s5mail-cp-credentials"),
     ),
   );
 }
@@ -54,7 +55,7 @@ test("generates a user password without creating an account", async ({ page }) =
 test("creates and removes an alias", async ({ page }) => {
   await visitPanel(page, "aliases", "Aliases");
   await page.locator("#addaliasAddress").fill(alias);
-  await page.locator("#addaliasForwardsTo").fill("me@mailinabox.lan");
+  await page.locator("#addaliasForwardsTo").fill("me@s5mail.lan");
   await page.getByRole("button", { name: "Add Alias" }).click();
   await dismissResult(page);
   const row = page.locator("#alias_table tr", { hasText: alias });
