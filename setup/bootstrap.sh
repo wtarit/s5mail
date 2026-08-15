@@ -2,7 +2,7 @@
 #########################################################
 # This script is intended to be run like this:
 #
-#   curl -fsSL https://raw.githubusercontent.com/wtarit/s5mail/v2026.08.1/setup/bootstrap.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/wtarit/s5mail/v2026.08.2/setup/bootstrap.sh | sudo bash
 #
 #########################################################
 
@@ -18,7 +18,7 @@ if [ -z "$TAG" ]; then
 	# Allow point-release versions, e.g. 22.04.1 is OK.
 	UBUNTU_VERSION=$( lsb_release -d | sed 's/.*:\s*//' | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]/\1/' )
 	if [ "$UBUNTU_VERSION" == "Ubuntu 22.04 LTS" ]; then
-		TAG=v2026.08.1
+		TAG=v2026.08.2
 	else
 		echo "This S5 Mail release may be used only on Ubuntu 22.04 LTS."
 		exit 1
