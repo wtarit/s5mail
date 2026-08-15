@@ -16,7 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/2.0.0/).
 ### Added
 
 - Added configurable external SMTP relay.
-- Added control-panel settings for SMTP relay authentication.
+- Added control-panel status checks for SMTP relay authentication.
 - Added an option to disable Postgrey.
 
 ### Changed
