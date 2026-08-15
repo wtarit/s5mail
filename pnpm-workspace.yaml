@@ -1,0 +1,5 @@
+minimumReleaseAgeExclude:
+  - "oxlint@1.77.0"
+  - "@oxlint/*"
+  - "oxfmt@0.62.0"
+  - "@oxfmt/*"

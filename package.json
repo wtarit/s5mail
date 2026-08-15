@@ -1,0 +1,20 @@
+{
+    "name": "s5mail-admin-ui",
+    "private": true,
+    "scripts": {
+        "format": "oxfmt 'management/assets/**/*.js' 'tests/browser/**/*.js' playwright.config.js .oxlintrc.json .oxfmtrc.json package.json --write --no-error-on-unmatched-pattern",
+        "format:check": "oxfmt 'management/assets/**/*.js' 'tests/browser/**/*.js' playwright.config.js .oxlintrc.json .oxfmtrc.json package.json --check --no-error-on-unmatched-pattern",
+        "lint": "oxlint --deny-warnings --report-unused-disable-directives --no-error-on-unmatched-pattern management/assets tests/browser playwright.config.js && tools/check-admin-js.sh",
+        "test:e2e": "playwright test",
+        "check": "pnpm format:check && pnpm lint && pnpm test:e2e"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.62.1",
+        "oxfmt": "0.62.0",
+        "oxlint": "1.77.0"
+    },
+    "engines": {
+        "node": ">=24 <25"
+    },
+    "packageManager": "pnpm@11.20.0"
+}

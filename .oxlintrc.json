@@ -1,0 +1,36 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["typescript", "unicorn", "oxc"],
+    "categories": {
+        "correctness": "error"
+    },
+    "rules": {
+        "no-undef": "error",
+        "max-lines": [
+            "error",
+            {
+                "max": 300,
+                "skipBlankLines": false,
+                "skipComments": false
+            }
+        ]
+    },
+    "env": {
+        "builtin": true
+    },
+    "overrides": [
+        {
+            "files": ["management/assets/**/*.js"],
+            "env": {
+                "browser": true
+            }
+        },
+        {
+            "files": ["playwright.config.js", "tests/browser/**/*.js"],
+            "env": {
+                "browser": true,
+                "node": true
+            }
+        }
+    ]
+}
