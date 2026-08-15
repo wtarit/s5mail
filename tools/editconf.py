@@ -1,4 +1,4 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 #
 # This is a helper tool for editing configuration files during the setup
 # process. The tool is given new values for settings as command-line

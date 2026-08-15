@@ -1,13 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.MIAB_E2E_URL;
-const requiredEnvironment = ["MIAB_E2E_URL", "MIAB_E2E_EMAIL", "MIAB_E2E_PASSWORD"];
+const baseURL = process.env.S5MAIL_E2E_URL;
+const requiredEnvironment = ["S5MAIL_E2E_URL", "S5MAIL_E2E_EMAIL", "S5MAIL_E2E_PASSWORD"];
 const missingEnvironment = requiredEnvironment.filter((name) => !process.env[name]);
 
 if (missingEnvironment.length) {
-  throw new Error(
-    `Playwright requires a live Mail-in-a-Box. Missing: ${missingEnvironment.join(", ")}.`,
-  );
+  throw new Error(`Playwright requires a live S5 Mail. Missing: ${missingEnvironment.join(", ")}.`);
 }
 
 export default defineConfig({

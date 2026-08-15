@@ -4,11 +4,15 @@ import os.path
 # migrate.py which runs on fresh machines before anything is installed
 # besides Python.
 
-# THE ENVIRONMENT FILE AT /etc/mailinabox.conf
+# THE ENVIRONMENT FILE AT /etc/s5mail.conf
 
 def load_environment():
-    # Load settings from /etc/mailinabox.conf.
-    return load_env_vars_from_file("/etc/mailinabox.conf")
+    # Read the legacy file during the first upgrade to S5 Mail.
+    for path in ("/etc/s5mail.conf", "/etc/mailinabox.conf"):
+        if os.path.exists(path):
+            return load_env_vars_from_file(path)
+    message = "S5 Mail environment file not found"
+    raise FileNotFoundError(message)
 
 def load_env_vars_from_file(fn):
     # Load settings from a KEY=VALUE file.
@@ -20,7 +24,7 @@ def load_env_vars_from_file(fn):
     return env
 
 def save_environment(env):
-    with open("/etc/mailinabox.conf", "w", encoding="utf-8") as f:
+    with open("/etc/s5mail.conf", "w", encoding="utf-8") as f:
         f.writelines(f"{k}={v}\n" for k, v in env.items())
 
 # THE SETTINGS FILE AT STORAGE_ROOT/settings.yaml.

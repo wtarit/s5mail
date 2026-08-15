@@ -4,7 +4,7 @@ After=multi-user.target
 
 [Service]
 Type=idle
-ExecStart=/usr/local/lib/mailinabox/munin_start.sh
+ExecStart=/usr/local/lib/s5mail/munin_start.sh
 
 [Install]
 WantedBy=multi-user.target

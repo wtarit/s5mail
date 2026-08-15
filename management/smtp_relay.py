@@ -1,4 +1,4 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 
 import argparse
 import smtplib

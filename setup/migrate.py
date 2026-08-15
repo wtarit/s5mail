@@ -1,6 +1,6 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 
-# Migrates any file structures, database schemas, etc. between versions of Mail-in-a-Box.
+# Migrates any file structures, database schemas, etc. between versions of S5 Mail.
 
 # setup/python.sh provisions the locked runtime before this script runs. Keep
 # migrations compatible with the data and configuration left by older releases.
@@ -45,7 +45,8 @@ def migration_2(env):
 		os.unlink(fn)
 
 def migration_3(env):
-	# Move the migration ID from /etc/mailinabox.conf to $STORAGE_ROOT/mailinabox.version
+	# Move the migration ID from the environment file to the storage-root
+	# migration marker.
 	# so that the ID stays with the data files that it describes the format of. The writing
 	# of the file will be handled by the main function.
 	pass
@@ -208,13 +209,16 @@ def get_current_migration():
 		ver = next_ver
 
 def run_migrations():
-	if not os.access("/etc/mailinabox.conf", os.W_OK, effective_ids=True):
+	environment_file = "/etc/s5mail.conf" if os.path.exists("/etc/s5mail.conf") else "/etc/mailinabox.conf"
+	if not os.access(environment_file, os.W_OK, effective_ids=True):
 		print("This script must be run as root.", file=sys.stderr)
 		sys.exit(1)
 
 	env = load_environment()
 
-	migration_id_file = os.path.join(env['STORAGE_ROOT'], 'mailinabox.version')
+	new_migration_id_file = os.path.join(env['STORAGE_ROOT'], 's5mail.version')
+	legacy_migration_id_file = os.path.join(env['STORAGE_ROOT'], 'mailinabox.version')
+	migration_id_file = new_migration_id_file if os.path.exists(new_migration_id_file) else legacy_migration_id_file
 	migration_id = None
 	if os.path.exists(migration_id_file):
 		with open(migration_id_file, encoding='utf-8') as f:
@@ -241,7 +245,7 @@ def run_migrations():
 			break
 
 		print()
-		print("Running migration to Mail-in-a-Box #%d..." % next_ver)
+		print("Running migration to S5 Mail #%d..." % next_ver)
 
 		try:
 			migration_func(env)

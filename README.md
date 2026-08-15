@@ -5,14 +5,14 @@ Host your own mail server on $5 VPS.
 > [!IMPORTANT]
 > **Project status:** S5 Mail is under active development. Version **2026.08.1**
 > is the final release for Ubuntu 22.04 LTS. Installations currently running
-> Mail-in-a-Box v76 must upgrade to S5 Mail 2026.08.1 before moving to a future
+> the original v76 release must upgrade to S5 Mail 2026.08.1 before moving to a future
 > release. New installations are not recommended until the Debian 13-based
 > version of S5 Mail is released.
 
 For a fresh Ubuntu 22.04 test system:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/wtarit/s5mail/v2026.08.1/setup/bootstrap.sh | sudo -E env SOURCE=https://github.com/wtarit/s5mail TAG=v2026.08.1 bash
+curl -fsSL https://raw.githubusercontent.com/wtarit/s5mail/v2026.08.1/setup/bootstrap.sh | sudo bash
 ```
 
 S5 Mail provisions a complete, self-hosted mail server and control panel.

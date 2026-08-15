@@ -3,7 +3,7 @@
 ##########################
 
 source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
+source /etc/s5mail.conf # load global vars
 
 # ### Installing Nextcloud
 
@@ -322,7 +322,7 @@ fi
 # * trusted_domains is reset to localhost by autoconfig starting with ownCloud 8.1.1,
 #   so set it here. It also can change if the box's PRIMARY_HOSTNAME changes, so
 #   this will make sure it has the right value.
-# * Some settings weren't included in previous versions of Mail-in-a-Box.
+# * Some settings weren't included in previous versions of S5 Mail.
 # * We need to set the timezone to the system timezone to allow fail2ban to ban
 #   users within the proper timeframe
 # * We need to set the logdateformat to something that will work correctly with fail2ban
@@ -415,7 +415,8 @@ tools/editconf.py /etc/php/"$PHP_VER"/cli/conf.d/10-opcache.ini -c ';' \
 
 # Migrate users_external data from <0.6.0 to version 3.0.0
 # (see https://github.com/nextcloud/user_external).
-# This version was probably in use in Mail-in-a-Box v0.41 (February 26, 2019) and earlier.
+# This version was probably in use in the original project's v0.41 release
+# (February 26, 2019) and earlier.
 # We moved to v0.6.3 in 193763f8. Ignore errors - maybe there are duplicated users with the
 # correct backend already.
 sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" "UPDATE oc_users_external SET backend='127.0.0.1';" || /bin/true
@@ -423,13 +424,14 @@ sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" "UPDATE oc_users_external SET backe
 # Set up a general cron job for Nextcloud.
 # Also add another job for Calendar updates, per advice in the Nextcloud docs
 # https://docs.nextcloud.com/server/24/admin_manual/groupware/calendar.html#background-jobs
-cat > /etc/cron.d/mailinabox-nextcloud << EOF;
+rm -f /etc/cron.d/mailinabox-nextcloud
+cat > /etc/cron.d/s5mail-nextcloud << EOF;
 #!/bin/bash
-# Mail-in-a-Box
+# S5 Mail
 */5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/cron.php
 */5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/occ dav:send-event-reminders
 EOF
-chmod +x /etc/cron.d/mailinabox-nextcloud
+chmod +x /etc/cron.d/s5mail-nextcloud
 
 # We also need to change the sending mode from background-job to occ.
 # Or else the reminders will just be sent as soon as possible when the background jobs run.

@@ -2,6 +2,8 @@ let credentials = null;
 let currentPanel = null;
 let switchBackPanel = null;
 const panels = new Map();
+const credentialsKey = "s5mail-cp-credentials";
+const legacyCredentialsKey = "miab-cp-credentials";
 
 export function getCredentials() {
   return credentials;
@@ -21,8 +23,10 @@ export function setSwitchBackPanel(value) {
 
 export function clearCredentials() {
   credentials = null;
-  localStorage.removeItem("miab-cp-credentials");
-  sessionStorage.removeItem("miab-cp-credentials");
+  localStorage.removeItem(credentialsKey);
+  sessionStorage.removeItem(credentialsKey);
+  localStorage.removeItem(legacyCredentialsKey);
+  sessionStorage.removeItem(legacyCredentialsKey);
 }
 
 export { clearCredentials as clear_credentials, showPanel as show_panel };
@@ -30,7 +34,10 @@ export { clearCredentials as clear_credentials, showPanel as show_panel };
 export function restoreCredentials() {
   try {
     const saved =
-      sessionStorage.getItem("miab-cp-credentials") || localStorage.getItem("miab-cp-credentials");
+      sessionStorage.getItem(credentialsKey) ||
+      localStorage.getItem(credentialsKey) ||
+      sessionStorage.getItem(legacyCredentialsKey) ||
+      localStorage.getItem(legacyCredentialsKey);
     credentials = saved ? JSON.parse(saved) : null;
   } catch {
     clearCredentials();

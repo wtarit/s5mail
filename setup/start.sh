@@ -108,17 +108,29 @@ export NCURSES_NO_UTF8_ACS=1
 # management code needs to run.
 source setup/python.sh
 
-# Recall the last settings used if we're running this a second time.
-if [ -f /etc/mailinabox.conf ]; then
+# Create the S5 Mail environment file early in the first v76 upgrade so an
+# interrupted setup can be resumed with either the old or new checkout.
+if [ ! -f /etc/s5mail.conf ] && [ -f /etc/mailinabox.conf ]; then
+	cp -p /etc/mailinabox.conf /etc/s5mail.conf
+fi
+
+# Recall the last settings used if we're running this a second time. Read the
+# legacy configuration on the first upgrade from the original v76 release.
+if [ -f /etc/s5mail.conf ]; then
+	PREVIOUS_CONFIG=/etc/s5mail.conf
+elif [ -f /etc/mailinabox.conf ]; then
+	PREVIOUS_CONFIG=/etc/mailinabox.conf
+fi
+if [ -n "${PREVIOUS_CONFIG:-}" ]; then
 	# Run any system migrations before proceeding. Since this is a second run,
 	# we assume we have Python already installed.
 	setup/migrate.py --migrate || exit 1
 
 	# Load the old .conf file to get existing configuration options loaded
 	# into variables with a DEFAULT_ prefix.
-	cat /etc/mailinabox.conf | sed s/^/DEFAULT_/ > /tmp/mailinabox.prev.conf
-	source /tmp/mailinabox.prev.conf
-	rm -f /tmp/mailinabox.prev.conf
+	sed s/^/DEFAULT_/ "$PREVIOUS_CONFIG" > /tmp/s5mail.prev.conf
+	source /tmp/s5mail.prev.conf
+	rm -f /tmp/s5mail.prev.conf
 else
 	FIRST_TIME_SETUP=1
 fi
@@ -141,14 +153,17 @@ if [ "$ENABLE_SMTP_RELAY" != "0" ] && [ "$ENABLE_SMTP_RELAY" != "1" ]; then
 	exit 2
 fi
 
-# Put a start script in a global location. We tell the user to run 'mailinabox'
+# Put a start script in a global location. We tell the user to run 's5mail'
 # in the first dialog prompt, so we should do this before that starts.
-cat > /usr/local/bin/mailinabox << EOF;
+cat > /usr/local/bin/s5mail << EOF;
 #!/bin/bash
 cd $PWD
 source setup/start.sh
 EOF
-chmod +x /usr/local/bin/mailinabox
+chmod +x /usr/local/bin/s5mail
+
+# Keep the previous command working on upgraded systems.
+ln -sf /usr/local/bin/s5mail /usr/local/bin/mailinabox
 
 # Ask the user for the PRIMARY_HOSTNAME, PUBLIC_IP, and PUBLIC_IPV6,
 # if values have not already been set in environment variables. When running
@@ -157,7 +172,7 @@ chmod +x /usr/local/bin/mailinabox
 source setup/questions.sh
 
 if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
-	if ! SMTP_RELAY_NORMALIZED=$("$MIAB_PYTHON" management/smtp_relay.py normalize \
+	if ! SMTP_RELAY_NORMALIZED=$("$S5MAIL_PYTHON" management/smtp_relay.py normalize \
 		--host "$SMTP_RELAY_HOST" \
 		--port "$SMTP_RELAY_PORT" \
 		--security "$SMTP_RELAY_SECURITY" \
@@ -178,7 +193,7 @@ if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
 		echo "The SMTP relay password cannot contain a newline." >&2
 		exit 2
 	fi
-	if [ -z "${SMTP_RELAY_PASSWORD:-}" ] && ! "$MIAB_PYTHON" management/smtp_relay.py has-credentials \
+	if [ -z "${SMTP_RELAY_PASSWORD:-}" ] && ! "$S5MAIL_PYTHON" management/smtp_relay.py has-credentials \
 		--host "$SMTP_RELAY_HOST" \
 		--port "$SMTP_RELAY_PORT" \
 		--security "$SMTP_RELAY_SECURITY" \
@@ -208,10 +223,10 @@ fi
 # Set the directory and all of its parent directories' permissions to world
 # readable since it holds files owned by different processes.
 #
-# If the STORAGE_ROOT is missing the mailinabox.version file that lists a
+# If the STORAGE_ROOT is missing the s5mail.version file that lists a
 # migration (schema) number for the files stored there, assume this is a fresh
 # installation to that directory and write the file to contain the current
-# migration number for this version of Mail-in-a-Box.
+# migration number for this version of S5 Mail.
 if ! id -u "$STORAGE_USER" >/dev/null 2>&1; then
 	useradd -m "$STORAGE_USER"
 fi
@@ -220,16 +235,19 @@ if [ ! -d "$STORAGE_ROOT" ]; then
 fi
 f=$STORAGE_ROOT
 while [[ $f != / ]]; do chmod a+rx "$f"; f=$(dirname "$f"); done;
-if [ ! -f "$STORAGE_ROOT/mailinabox.version" ]; then
-	setup/migrate.py --current > "$STORAGE_ROOT/mailinabox.version"
-	chown "$STORAGE_USER:$STORAGE_USER" "$STORAGE_ROOT/mailinabox.version"
+if [ ! -f "$STORAGE_ROOT/s5mail.version" ] && [ -f "$STORAGE_ROOT/mailinabox.version" ]; then
+	cp -p "$STORAGE_ROOT/mailinabox.version" "$STORAGE_ROOT/s5mail.version"
+fi
+if [ ! -f "$STORAGE_ROOT/s5mail.version" ]; then
+	setup/migrate.py --current > "$STORAGE_ROOT/s5mail.version"
+	chown "$STORAGE_USER:$STORAGE_USER" "$STORAGE_ROOT/s5mail.version"
 fi
 
-# Save the global options in /etc/mailinabox.conf so that standalone
+# Save the global options in /etc/s5mail.conf so that standalone
 # tools know where to look for data. The default MTA_STS_MODE setting
 # is blank unless set by an environment variable, but see web.sh for
 # how that is interpreted.
-cat > /etc/mailinabox.conf << EOF;
+cat > /etc/s5mail.conf << EOF;
 STORAGE_USER=$STORAGE_USER
 STORAGE_ROOT=$STORAGE_ROOT
 PRIMARY_HOSTNAME=$PRIMARY_HOSTNAME
@@ -264,7 +282,7 @@ source setup/munin.sh
 # Wait for the management daemon to start...
 until nc -z -w 4 127.0.0.1 10222
 do
-	echo "Waiting for the Mail-in-a-Box management daemon to start..."
+	echo "Waiting for the S5 Mail management daemon to start..."
 	sleep 2
 done
 
@@ -287,7 +305,7 @@ source setup/firstuser.sh
 if [ ! -d "$STORAGE_ROOT/ssl/lets_encrypt/accounts/acme-v02.api.letsencrypt.org/" ]; then
 echo
 echo "-----------------------------------------------"
-echo "Mail-in-a-Box uses Let's Encrypt to provision free SSL/TLS certificates"
+echo "S5 Mail uses Let's Encrypt to provision free SSL/TLS certificates"
 echo "to enable HTTPS connections to your box. We're automatically"
 echo "agreeing you to their subscriber agreement. See https://letsencrypt.org."
 echo
@@ -298,7 +316,7 @@ fi
 echo
 echo "-----------------------------------------------"
 echo
-echo "Your Mail-in-a-Box is running."
+echo "Your S5 Mail is running."
 echo
 echo "Please log in to the control panel for further instructions at:"
 echo

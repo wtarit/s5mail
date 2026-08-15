@@ -219,7 +219,7 @@ const split1_rest = (string, separator) => {
 // Note: The manifest JS URL class does not work in some security-conscious
 // settings, e.g. Brave browser, so we roll our own that handles only what we need.
 //
-// Use greedy separator parsing to get parts of a MIAB backup target url.
+// Use greedy separator parsing to get parts of an S5 Mail backup target URL.
 // Note: path will not include a leading forward slash '/'
 const url_split = (url) => {
   const [scheme, scheme_rest] = split1_rest(url, "://");

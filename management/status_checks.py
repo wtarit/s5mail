@@ -1,4 +1,4 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 #
 # Checks that the upstream DNS has been set correctly and that
 # TLS certificates have been signed, etc., and if not tells the user
@@ -35,7 +35,7 @@ def get_services(env):
 		{ "name": "Spamassassin", "port": 10025, "public": False, },
 		{ "name": "OpenDKIM", "port": 8891, "public": False, },
 		{ "name": "OpenDMARC", "port": 8893, "public": False, },
-		{ "name": "Mail-in-a-Box Management Daemon", "port": 10222, "public": False, },
+		{ "name": "S5 Mail Management Daemon", "port": 10222, "public": False, },
 		{ "name": "SSH Login (ssh)", "port": get_ssh_port(), "public": True, },
 		{ "name": "Public DNS (nsd4)", "port": 53, "public": True, },
 		{ "name": "Incoming Mail (SMTP/postfix)", "port": 25, "public": True, },
@@ -158,7 +158,7 @@ def check_service(i, service, env):
 def run_system_checks(rounded_values, env, output):
 	check_ssh_password(env, output)
 	check_software_updates(env, output)
-	check_miab_version(env, output)
+	check_s5mail_version(env, output)
 	check_system_aliases(env, output)
 	check_free_disk_space(rounded_values, env, output)
 	check_free_memory(rounded_values, env, output)
@@ -358,7 +358,7 @@ def evaluate_spamhaus_lookup(lookupaddress, lookuptype, lookupdomain, output, ze
 		output.print_warning(f"""Incorrect spamhaus query: {lookupdomain + '.zen.spamhaus.org'}. Could not determine whether
 		 	this box's {lookuptype} address is blacklisted.""")
 	elif zen == "127.255.255.254":
-		output.print_warning(f"""Mail-in-a-Box is configured to use a public DNS server. This is not supported by
+		output.print_warning(f"""S5 Mail is configured to use a public DNS server. This is not supported by
 			spamhaus. Could not determine whether this box's {lookuptype} address is blacklisted.""")
 	elif zen == "127.255.255.255":
 		output.print_warning(f"""Too many queries have been performed on the spamhaus server. Could not determine
@@ -826,7 +826,7 @@ def check_mail_domain(domain, env, output):
 	elif dbl == "127.255.255.252":
 		output.print_warning("Incorrect spamhaus query: {}. Could not determine whether the domain {} is blacklisted.".format(domain+'.dbl.spamhaus.org', domain))
 	elif dbl == "127.255.255.254":
-		output.print_warning(f"Mail-in-a-Box is configured to use a public DNS server. This is not supported by spamhaus. Could not determine whether the domain {domain} is blacklisted.")
+		output.print_warning(f"S5 Mail is configured to use a public DNS server. This is not supported by spamhaus. Could not determine whether the domain {domain} is blacklisted.")
 	elif dbl == "127.255.255.255":
 		output.print_warning(f"Too many queries have been performed on the spamhaus server. Could not determine whether the domain {domain} is blacklisted.")
 	else:
@@ -984,23 +984,24 @@ def list_apt_updates(apt_update=True):
 	return pkgs
 
 def what_version_is_this(env):
-	# This function runs `git describe --always --abbrev=0` on the Mail-in-a-Box installation directory.
-	# Git may not be installed and Mail-in-a-Box may not have been cloned from github,
+	# This function runs `git describe --always --abbrev=0` on the S5 Mail installation directory.
+	# Git may not be installed and S5 Mail may not have been cloned from github,
 	# so this function may raise all sorts of exceptions.
-	miab_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-	return shell("check_output", ["/usr/bin/git", "describe", "--always", "--abbrev=0"], env={"GIT_DIR": os.path.join(miab_dir, '.git')}).strip()
+	repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+	return shell("check_output", ["/usr/bin/git", "describe", "--always", "--abbrev=0"], env={"GIT_DIR": os.path.join(repo_dir, '.git')}).strip()
 
-def get_latest_miab_version():
-	# This pings https://mailinabox.email/setup.sh and extracts the tag named in
-	# the script to determine the current product version.
+def get_latest_s5mail_version():
+	# Read the default tag from the bootstrap script on the main branch to
+	# determine the current S5 Mail release.
     from urllib.request import urlopen, HTTPError, URLError
 
     try:
-        return re.search(b'TAG=(.*)', urlopen("https://mailinabox.email/setup.sh?ping=1", timeout=5).read()).group(1).decode("utf8")
+        bootstrap_url = "https://raw.githubusercontent.com/wtarit/s5mail/main/setup/bootstrap.sh?ping=1"
+        return re.search(rb'TAG=(.*)', urlopen(bootstrap_url, timeout=5).read()).group(1).decode("utf8")
     except (TimeoutError, HTTPError, URLError):
         return None
 
-def check_miab_version(env, output):
+def check_s5mail_version(env, output):
 	config = load_settings(env)
 
 	try:
@@ -1009,16 +1010,16 @@ def check_miab_version(env, output):
 		this_ver = "Unknown"
 
 	if config.get("privacy", True):
-		output.print_warning(f"You are running version Mail-in-a-Box {this_ver}. Mail-in-a-Box version check disabled by privacy setting.")
+		output.print_warning(f"You are running S5 Mail {this_ver}. The S5 Mail version check is disabled by the privacy setting.")
 	else:
-		latest_ver = get_latest_miab_version()
+		latest_ver = get_latest_s5mail_version()
 
 		if this_ver == latest_ver:
-			output.print_ok(f"Mail-in-a-Box is up to date. You are running version {this_ver}.")
+			output.print_ok(f"S5 Mail is up to date. You are running version {this_ver}.")
 		elif latest_ver is None:
-			output.print_error(f"Latest Mail-in-a-Box version could not be determined. You are running version {this_ver}.")
+			output.print_error(f"Latest S5 Mail version could not be determined. You are running version {this_ver}.")
 		else:
-			output.print_error(f"A new version of Mail-in-a-Box is available. You are running version {this_ver}. The latest version is {latest_ver}. For upgrade instructions, see https://mailinabox.email. ")
+			output.print_error(f"A new version of S5 Mail is available. You are running version {this_ver}. The latest version is {latest_ver}. See https://github.com/wtarit/s5mail/releases for release details.")
 
 def run_and_output_changes(env, pool):
 	import json
@@ -1031,7 +1032,7 @@ def run_and_output_changes(env, pool):
 	run_checks(True, env, cur, pool)
 
 	# Load previously saved status checks.
-	cache_fn = "/var/cache/mailinabox/status_checks.json"
+	cache_fn = "/var/cache/s5mail/status_checks.json"
 	if os.path.exists(cache_fn):
 		with open(cache_fn, encoding="utf-8") as f:
 			try:

@@ -39,11 +39,11 @@ These services are protected by [TLS](https://en.wikipedia.org/wiki/Transport_La
 
 * SMTP Submission (ports 465/587). Mail users submit outbound mail through SMTP with TLS (port 465) or STARTTLS (port 587).
 * IMAP/POP (ports 993, 995). Mail users check for incoming mail through IMAP or POP over TLS.
-* HTTPS (port 443). Webmail, the administrative control panel, and any static hosted websites are accessed over HTTPS.
+* HTTPS (port 443). Webmail and the administrative control panel are accessed over HTTPS.
 
 The services all follow these rules:
 
-* TLS certificates are generated with 2048-bit RSA keys and SHA-256 fingerprints. The box provides a self-signed certificate by default. The [setup guide](https://mailinabox.email/guide.html) explains how to verify the certificate fingerprint on first login. Users are encouraged to replace the certificate with a proper CA-signed one. ([source](setup/ssl.sh))
+* TLS certificates are generated with 2048-bit RSA keys and SHA-256 fingerprints. The box provides a self-signed certificate by default. Verify its fingerprint through a trusted channel on first login. Users are encouraged to replace the certificate with a proper CA-signed one. ([source](setup/ssl.sh))
 * Only TLSv1.2+ are offered (the older SSL protocols are not offered).
 * We track the [Mozilla Intermediate Ciphers Recommendation](https://wiki.mozilla.org/Security/Server_Side_TLS), balancing security with supporting a wide range of mail clients. Diffie-Hellman ciphers use a 2048-bit key for forward secrecy. For more details, see the [output of SSLyze for these ports](tests/tls_results.txt).
 
@@ -60,7 +60,7 @@ The passwords for mail users are stored on disk using the [SHA512-CRYPT](http://
 
 Console access (e.g. via SSH) is configured by the system image used to create the box, typically from by a cloud virtual machine provider (e.g. Digital Ocean). S5 Mail does not set any console access settings, although it will warn the administrator in the System Status Checks if password-based login is turned on.
 
-The [setup guide video](https://mailinabox.email/) explains how to verify the host key fingerprint on first login.
+Verify the host key fingerprint through a trusted console or hosting-provider interface before the first SSH login.
 
 If DNSSEC is enabled at the box's domain name's registrar, the SSHFP record that the box automatically puts into DNS can also be used to verify the host key fingerprint by setting `VerifyHostKeyDNS yes` in your `ssh/.config` file or by logging in with `ssh -o VerifyHostKeyDNS=yes`. ([source](management/dns_update.py))
 

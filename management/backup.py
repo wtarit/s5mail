@@ -1,4 +1,4 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 
 # This script performs a backup of all user data:
 # 1) System services are stopped.
@@ -16,7 +16,7 @@ from exclusiveprocess import Lock
 from utils import load_environment, shell, wait_for_service
 import operator
 
-DUPLICITY_BIN = "/usr/local/lib/mailinabox/duplicity-env/bin/duplicity"
+DUPLICITY_BIN = "/usr/local/lib/s5mail/duplicity-env/bin/duplicity"
 
 
 def backup_status(env):
@@ -235,8 +235,8 @@ def get_duplicity_additional_args(env):
 			port = 22
 
 		return [
-			f"--ssh-options='-i /root/.ssh/id_rsa_miab -p {port}'",
-			f"--rsync-options='-e \"/usr/bin/ssh -oStrictHostKeyChecking=no -oBatchMode=yes -p {port} -i /root/.ssh/id_rsa_miab\"'",
+			f"--ssh-options='-i /root/.ssh/id_rsa_s5mail -p {port}'",
+			f"--rsync-options='-e \"/usr/bin/ssh -oStrictHostKeyChecking=no -oBatchMode=yes -p {port} -i /root/.ssh/id_rsa_s5mail\"'",
 		]
 	if get_target_type(config) == 's3':
 		# See note about hostname in get_duplicity_target_url.
@@ -474,7 +474,7 @@ def list_target_files(config):
 
 		rsync_command = [ 'rsync',
 					'-e',
-					f'/usr/bin/ssh -i /root/.ssh/id_rsa_miab -oStrictHostKeyChecking=no -oBatchMode=yes -p {port}',
+					f'/usr/bin/ssh -i /root/.ssh/id_rsa_s5mail -oStrictHostKeyChecking=no -oBatchMode=yes -p {port}',
 					'--list-only',
 					'-r',
 					rsync_target.format(
@@ -501,7 +501,7 @@ def list_target_files(config):
 		else:
 			reason = ("Unknown error."
 					"Please check running 'management/backup.py --verify'"
-					"from mailinabox sources to debug the issue.")
+					"from S5 Mail sources to debug the issue.")
 		msg = f"Connection to rsync host failed: {reason}"
 		raise ValueError(msg)
 
@@ -615,7 +615,7 @@ def get_backup_config(env, for_save=False, for_ui=False):
 	if config["target"] == "local":
 		# Expand to the full URL.
 		config["target"] = "file://" + config["file_target_directory"]
-	ssh_pub_key = os.path.join('/root', '.ssh', 'id_rsa_miab.pub')
+	ssh_pub_key = os.path.join('/root', '.ssh', 'id_rsa_s5mail.pub')
 	if os.path.exists(ssh_pub_key):
 		with open(ssh_pub_key, encoding="utf-8") as f:
 			config["ssh_pub_key"] = f.read()

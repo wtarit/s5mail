@@ -1,6 +1,6 @@
-#!/usr/local/lib/mailinabox/env/bin/python
+#!/usr/local/lib/s5mail/env/bin/python
 
-# This script runs in the uv-managed Mail-in-a-Box environment, including when
+# This script runs in the uv-managed S5 Mail environment, including when
 # setup/questions.sh uses it to validate an email address during provisioning.
 
 import os, sqlite3, re

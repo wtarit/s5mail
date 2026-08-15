@@ -7,7 +7,7 @@ source setup/functions.sh
 
 uv_version=0.11.30
 python_version=3.14.6
-inst_dir=/usr/local/lib/mailinabox
+inst_dir=/usr/local/lib/s5mail
 tool_dir=$inst_dir/tools
 uv=$tool_dir/uv
 venv=$inst_dir/env
@@ -23,7 +23,7 @@ if ! command -v wget >/dev/null || [ ! -f /etc/ssl/certs/ca-certificates.crt ]; 
 fi
 
 if [ "$(uname -m)" != "x86_64" ]; then
-	echo "Mail-in-a-Box's Python runtime requires the x86_64 architecture." >&2
+	echo "S5 Mail's Python runtime requires the x86_64 architecture." >&2
 	exit 1
 fi
 
@@ -69,10 +69,10 @@ if [ ! -x "$venv/bin/python" ] || ! "$venv/bin/python" -c \
 	hide_output "$uv" venv "$venv" --python "$app_python" || exit 1
 fi
 
-export MIAB_UV=$uv
-export MIAB_VENV=$venv
-export MIAB_PYTHON=$venv/bin/python
-export MIAB_APP_PYTHON=$app_python
+export S5MAIL_UV=$uv
+export S5MAIL_VENV=$venv
+export S5MAIL_PYTHON=$venv/bin/python
+export S5MAIL_APP_PYTHON=$app_python
 export UV_PROJECT_ENVIRONMENT=$venv
 
 # The lockfile is part of the repository and is authoritative during setup.

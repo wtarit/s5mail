@@ -24,14 +24,14 @@ function show_custom_dns() {
 function show_current_custom_dns() {
   api("/dns/custom", "GET", {}, function (data) {
     setVisible(query("#custom-dns-current"), data.length > 0);
-    window.miab_custom_dns_data = data;
+    window.s5mail_custom_dns_data = data;
     show_current_custom_dns_update_after_sort();
   });
 }
 
 function show_current_custom_dns_update_after_sort() {
-  var data = window.miab_custom_dns_data;
-  var sort_key = window.miab_custom_dns_data_sort_order || "qname";
+  var data = window.s5mail_custom_dns_data;
+  var sort_key = window.s5mail_custom_dns_data_sort_order || "qname";
 
   data.sort(function (a, b) {
     return a["sort-order"][sort_key] - b["sort-order"][sort_key];
@@ -150,7 +150,7 @@ document.querySelector("#panel_custom_dns").addEventListener("click", (event) =>
   event.preventDefault();
   if (action.dataset.dnsAction === "delete") delete_custom_dns_record(action);
   else {
-    window.miab_custom_dns_data_sort_order = action.dataset.dnsAction;
+    window.s5mail_custom_dns_data_sort_order = action.dataset.dnsAction;
     show_current_custom_dns_update_after_sort();
   }
 });

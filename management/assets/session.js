@@ -5,5 +5,5 @@ export function doLogout() {
   api("/logout", "POST");
   clearCredentials();
   showPanel("login");
-  document.dispatchEvent(new CustomEvent("miab:credentials-changed"));
+  document.dispatchEvent(new CustomEvent("s5mail:credentials-changed"));
 }

@@ -1,7 +1,7 @@
 import { expect, test as base } from "@playwright/test";
 
-export const email = process.env.MIAB_E2E_EMAIL;
-export const password = process.env.MIAB_E2E_PASSWORD;
+export const email = process.env.S5MAIL_E2E_EMAIL;
+export const password = process.env.S5MAIL_E2E_PASSWORD;
 
 export async function login(page) {
   await page.goto("/admin/");

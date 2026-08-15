@@ -4,11 +4,11 @@
 # - Node.js
 # - redoc-cli (`npm install redoc-cli -g`)
 
-redoc-cli bundle ../mailinabox.yml \
+redoc-cli bundle ../s5mail.yml \
   -t template.hbs \
   -o api-docs.html \
-  --templateOptions.metaDescription="Mail-in-a-Box HTTP API" \
-  --title="Mail-in-a-Box HTTP API" \
+  --templateOptions.metaDescription="S5 Mail HTTP API" \
+  --title="S5 Mail HTTP API" \
   --options.expandSingleSchemaField \
   --options.hideSingleRequestSampleTab \
   --options.jsonSampleExpandLevel=10 \

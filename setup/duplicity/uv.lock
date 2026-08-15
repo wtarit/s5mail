@@ -727,7 +727,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mailinabox-duplicity"
+name = "s5mail-duplicity"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
