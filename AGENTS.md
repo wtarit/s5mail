@@ -27,7 +27,7 @@
 ## Shell and Python conventions
 
 - Shell scripts should fail clearly, quote expansions appropriately, and remain safe to run more than once.
-- Python code targets Python 3.10 and follows the Ruff configuration in `pyproject.toml`.
+- Python code follows the Ruff configuration in `pyproject.toml`.
 - Treat files in `conf/` as templates: consider ownership, permissions, escaping, and whether local or generated values must survive reprovisioning.
 - Do not assume network services or systemd are available in lightweight development environments. Separate pure logic tests from host-level integration checks when practical.
 
