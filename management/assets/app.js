@@ -11,7 +11,6 @@ import "./panels/external-dns.js";
 import "./panels/ssl.js";
 import "./panels/system-backup.js";
 import "./panels/mfa.js";
-import "./panels/web.js";
 import "./panels/munin.js";
 
 initializeModal();

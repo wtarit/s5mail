@@ -44,8 +44,6 @@ It also includes system management tools:
 
 Internationalized domain names are supported and configured easily (but SMTPUTF8 is not supported, unfortunately).
 
-It also supports static website hosting since the box is serving HTTPS anyway. (To serve a website for your domains elsewhere, just add a custom DNS "A" record in you Mail-in-a-Box's control panel to point domains to another server.)
-
 For more information on how Mail-in-a-Box handles your privacy, see the [security details page](security.md).
 
 

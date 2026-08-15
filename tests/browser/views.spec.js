@@ -12,7 +12,6 @@ test("all non-destructive admin views render", async ({ page }) => {
     ["tls", "TLS (SSL) Certificates"],
     ["system_backup", "Backup Status"],
     ["mfa", "Two-Factor Authentication"],
-    ["web", "Static Web Hosting"],
   ];
   for (const [hash, heading] of panels) await visitPanel(page, hash, heading);
 });

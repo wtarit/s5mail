@@ -271,7 +271,7 @@ done
 # ...and then have it write the DNS and nginx configuration files and start those
 # services.
 tools/dns_update
-tools/web_update
+tools/nginx_update
 
 # Give fail2ban another restart. The log files may not all have been present when
 # fail2ban was first configured, but they should exist now.
@@ -313,7 +313,7 @@ if management/status_checks.py --check-primary-hostname; then
 else
 	echo "https://$PUBLIC_IP/admin"
 	echo
-	echo "You will be alerted that the website has an invalid certificate. Check that"
+	echo "You will be alerted that webmail has an invalid certificate. Check that"
 	echo "the certificate fingerprint matches:"
 	echo
 	openssl x509 -in "$STORAGE_ROOT/ssl/ssl_certificate.pem" -noout -fingerprint -sha256\

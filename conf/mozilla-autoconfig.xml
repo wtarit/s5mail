@@ -34,7 +34,7 @@
       </outgoingServer>
 
       <documentation url="https://PRIMARY_HOSTNAME/">
-         <descr lang="en">PRIMARY_HOSTNAME website.</descr>
+         <descr lang="en">PRIMARY_HOSTNAME mail configuration.</descr>
       </documentation>
     </emailProvider>
 
