@@ -1,5 +1,5 @@
 #!/bin/bash
-# HTTP: Turn on a web server serving static files
+# HTTP: Configure the web server and PHP runtime
 #################################################
 
 source setup/functions.sh # load our functions
@@ -140,14 +140,6 @@ cat conf/mta-sts.txt \
         | sed "s/PRIMARY_HOSTNAME/$PUNY_PRIMARY_HOSTNAME/" \
          > /var/lib/mailinabox/mta-sts.txt
 chmod a+r /var/lib/mailinabox/mta-sts.txt
-
-# make a default homepage
-if [ -d "$STORAGE_ROOT/www/static" ]; then mv "$STORAGE_ROOT/www/static" "$STORAGE_ROOT/www/default"; fi # migration #NODOC
-mkdir -p "$STORAGE_ROOT/www/default"
-if [ ! -f "$STORAGE_ROOT/www/default/index.html" ]; then
-	cp conf/www_default.html "$STORAGE_ROOT/www/default/index.html"
-fi
-chown -R "$STORAGE_USER" "$STORAGE_ROOT/www"
 
 # Start services.
 restart_service nginx

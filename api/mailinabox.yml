@@ -43,9 +43,6 @@ tags:
     description: |
       TLS (SSL) Certificates operations, which include checking certificate status
       and installing custom certificates.
-  - name: Web
-    description: |
-      Static web hosting operations, which include getting domain information and updating domain root directories.
   - name: MFA
     description: |
       Manage multi-factor authentication schemes. Currently, only TOTP is supported.
@@ -1664,59 +1661,6 @@ paths:
             text/html:
               schema:
                 type: string
-  /web/domains:
-    get:
-      tags:
-        - Web
-      summary: Get web domains
-      description: Returns all static web domains.
-      operationId: getWebDomains
-      x-codeSamples:
-        - lang: curl
-          source: |
-            curl -X GET "https://{host}/admin/web/domains" \
-              -u "<email>:<password>"
-      responses:
-        200:
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WebDomain'
-        403:
-          description: Forbidden
-          content:
-            text/html:
-              schema:
-                type: string
-  /web/update:
-    post:
-      tags:
-        - Web
-      summary: Update web
-      description: Updates static websites, used for updating domain root directories.
-      operationId: updateWeb
-      x-codeSamples:
-        - lang: curl
-          source: |
-            curl -X POST "https://{host}/admin/web/update" \
-              -u "<email>:<password>"
-      responses:
-        200:
-          description: Successful operation
-          content:
-            text/html:
-              schema:
-                $ref: '#/components/schemas/WebUpdateResponse'
-              example: web updated
-        403:
-          description: Forbidden
-          content:
-            text/html:
-              schema:
-                type: string
   /mfa/status:
     post:
       tags:
@@ -2642,45 +2586,6 @@ components:
         - invalid
       example: invalid
       description: Me (user) authentication result.
-    WebDomain:
-      type: object
-      required:
-        - custom_root
-        - domain
-        - root
-        - ssl_certificate
-        - static_enabled
-      properties:
-        custom_root:
-          type: string
-          example: /home/user-data/www/example.com
-        domain:
-          $ref: '#/components/schemas/Hostname'
-        root:
-          type: string
-          example: /home/user-data/www/default
-        ssl_certificate:
-          type: array
-          minItems: 2
-          maxItems: 2
-          uniqueItems: true
-          items:
-            oneOf:
-              - type: string
-                example: No certificate installed.
-              - type: string
-                enum:
-                  - danger
-                  - success
-                example: danger
-        static_enabled:
-          type: boolean
-          example: true
-      description: Web domain details.
-    WebUpdateResponse:
-      type: string
-      example: web updated
-      description: Web update response.
     MfaStatusResponse:
       type: object
       properties:

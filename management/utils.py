@@ -210,7 +210,7 @@ def get_ssh_config_value(parameter_name):
 	return None
 
 if __name__ == "__main__":
-	from web_update import get_web_domains
+	from nginx_update import get_web_domains
 	env = load_environment()
 	domains = get_web_domains(env)
 	for domain in domains:

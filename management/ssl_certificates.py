@@ -170,14 +170,14 @@ def get_domain_ssl_files(domain, ssl_certificates, env, allow_missing_cert=False
 
 def get_certificates_to_provision(env, limit_domains=None, show_valid_certs=True):
 	# Get a set of domain names that we can provision certificates for
-	# using certbot. We start with domains that the box is serving web
+	# using certbot. We start with domains that the box is serving HTTPS
 	# for and subtract:
 	# * domains not in limit_domains if limit_domains is not empty
 	# * domains with custom "A" records, i.e. they are hosted elsewhere
 	# * domains with actual "A" records that point elsewhere (misconfiguration)
 	# * domains that already have certificates that will be valid for a while
 
-	from web_update import get_web_domains
+	from nginx_update import get_web_domains
 	from status_checks import query_dns, normalize_ip
 
 	existing_certs = get_ssl_certificates(env)
@@ -195,7 +195,7 @@ def get_certificates_to_provision(env, limit_domains=None, show_valid_certs=True
 
 		# Check that there isn't an explicit A/AAAA record.
 		if domain not in actual_web_domains:
-			domains_cant_provision[domain] = "The domain has a custom DNS A/AAAA record that points the domain elsewhere, so there is no point to installing a TLS certificate here and we could not automatically provision one anyway because provisioning requires access to the website (which isn't here)."
+			domains_cant_provision[domain] = "The domain has a custom DNS A/AAAA record that points the domain elsewhere, so there is no point to installing a TLS certificate here and we could not automatically provision one anyway because provisioning requires access to webmail (which isn't here)."
 
 		# Check that the DNS resolves to here.
 		else:
@@ -492,8 +492,8 @@ def post_install_func(env):
 		# If the user does it, they must manually update DNS.
 
 	# Update the web configuration so nginx picks up the new certificate file.
-	from web_update import do_web_update
-	ret.append( do_web_update(env) )
+	from nginx_update import do_nginx_update
+	ret.append( do_nginx_update(env) )
 
 	return ret
 

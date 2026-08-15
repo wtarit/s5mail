@@ -14,7 +14,7 @@ import psutil
 import postfix_mta_sts_resolver.resolver
 
 from dns_update import get_dns_zones, build_tlsa_record, get_custom_dns_config, get_secondary_dns, get_custom_dns_records
-from web_update import get_web_domains, get_domains_with_a_records
+from nginx_update import get_web_domains, get_domains_with_a_records
 from ssl_certificates import get_ssl_certificates, get_domain_ssl_files, check_certificate
 from mailconfig import get_mail_domains, get_mail_aliases
 
@@ -383,12 +383,12 @@ def run_domain_checks(rounded_time, env, output, pool, domains_to_check=None):
 	if domains_to_check is None:
 		domains_to_check = mail_domains | dns_domains | web_domains
 
-	# Remove "www", "autoconfig", and "mta-sts" subdomains, which we group with their parent,
+	# Remove "autoconfig" and "mta-sts" subdomains, which we group with their parent,
 	# if their parent is in the domains to check list.
 	domains_to_check = [
 		d for d in domains_to_check
 		if not (
-		   d.split(".", 1)[0] in {"www", "autoconfig", "mta-sts"}
+			d.split(".", 1)[0] in {"autoconfig", "mta-sts"}
 		   and len(d.split(".", 1)) == 2
 		   and d.split(".", 1)[1] in domains_to_check
 		)
@@ -635,12 +635,9 @@ def check_dns_zone(domain, env, output, dns_zonefiles):
 					Check that synchronization between secondary and primary DNS servers is properly set-up.""")
 
 def check_dns_zone_suggestions(domain, env, output, dns_zonefiles, domains_with_a_records):
-	# Warn if a custom DNS record is preventing this or the automatic www redirect from
-	# being served.
+	# Warn if a custom DNS record prevents HTTPS services from being served.
 	if domain in domains_with_a_records:
-		output.print_warning("""Web has been disabled for this domain because you have set a custom DNS record.""")
-	if "www." + domain in domains_with_a_records:
-		output.print_warning(f"""A redirect from 'www.{domain}' has been disabled for this domain because you have set a custom DNS record on the www subdomain.""")
+		output.print_warning("""Webmail and HTTPS services have been disabled for this domain because you have set a custom DNS record.""")
 
 	# Since DNSSEC is optional, if a DS record is NOT set at the registrar suggest it.
 	# (If it was set, we did the check earlier.)
@@ -840,7 +837,7 @@ def check_mail_domain(domain, env, output):
 def check_web_domain(domain, rounded_time, ssl_certificates, env, output):
 	# See if the domain's A record resolves to our PUBLIC_IP. This is already checked
 	# for PRIMARY_HOSTNAME, for which it is required for mail specifically. For it and
-	# other domains, it is required to access its website.
+	# other domains, it is required to access webmail.
 	if domain != env['PRIMARY_HOSTNAME']:
 		ok_values = []
 		for (rtype, expected) in (("A", env['PUBLIC_IP']), ("AAAA", env.get('PUBLIC_IPV6'))):
@@ -850,7 +847,7 @@ def check_web_domain(domain, rounded_time, ssl_certificates, env, output):
 				ok_values.append(value)
 			else:
 				output.print_error(f"""This domain should resolve to this box's IP address ({rtype} {expected}) if you would like the box to serve
-					webmail or a website on this domain. The domain currently resolves to {value} in public DNS. It may take several hours for
+					webmail on this domain. The domain currently resolves to {value} in public DNS. It may take several hours for
 					public DNS to update after a change. This problem may result from other issues listed here.""")
 				return
 
@@ -859,8 +856,8 @@ def check_web_domain(domain, rounded_time, ssl_certificates, env, output):
 
 
 	# We need a TLS certificate for PRIMARY_HOSTNAME because that's where the
-	# user will log in with IMAP or webmail. Any other domain we serve a
-	# website for also needs a signed certificate.
+	# user will log in with IMAP or webmail. Any other domain we serve webmail
+	# for also needs a signed certificate.
 	check_ssl_cert(domain, rounded_time, ssl_certificates, env, output)
 
 def query_dns(qname, rtype, nxdomain='[Not Set]', at=None, as_list=False):
@@ -923,8 +920,8 @@ def check_ssl_cert(domain, rounded_time, ssl_certificates, env, output):
 	# Where is the certificate file stored?
 	tls_cert = get_domain_ssl_files(domain, ssl_certificates, env, allow_missing_cert=True)
 	if tls_cert is None:
-		output.print_warning("""No TLS (SSL) certificate is installed for this domain. Visitors to a website on
-			this domain will get a security warning. If you are not serving a website on this domain, you do
+		output.print_warning("""No TLS (SSL) certificate is installed for this domain. Visitors to webmail on
+			this domain will get a security warning. If you are not serving webmail on this domain, you do
 			not need to take any action. Use the TLS Certificates page in the control panel to install a
 			TLS certificate.""")
 		return
@@ -941,8 +938,7 @@ def check_ssl_cert(domain, rounded_time, ssl_certificates, env, output):
 		# Offer instructions for purchasing a signed certificate.
 		if domain == env['PRIMARY_HOSTNAME']:
 			output.print_error("""The TLS (SSL) certificate for this domain is currently self-signed. You will get a security
-			warning when you check or send email and when visiting this domain in a web browser (for webmail or
-			static site hosting).""")
+			warning when you check or send email and when visiting this domain in a web browser for webmail.""")
 		else:
 			output.print_error("""The TLS (SSL) certificate for this domain is self-signed.""")
 

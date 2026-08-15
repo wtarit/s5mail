@@ -695,8 +695,8 @@ def kick(env, mail_result=None):
 	from dns_update import do_dns_update
 	results.append( do_dns_update(env) )
 
-	from web_update import do_web_update
-	results.append( do_web_update(env) )
+	from nginx_update import do_nginx_update
+	results.append( do_nginx_update(env) )
 
 	return "".join(s for s in results if s != "")
 

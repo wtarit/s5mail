@@ -426,27 +426,47 @@ def dns_get_zonefile(zone):
 @app.route('/ssl/status')
 @authorized_personnel_only
 def ssl_get_status():
-	from ssl_certificates import get_certificates_to_provision
-	from web_update import get_web_domains_info, get_web_domains
+	from ssl_certificates import (
+		check_certificate,
+		get_certificates_to_provision,
+		get_domain_ssl_files,
+		get_ssl_certificates,
+	)
+	from nginx_update import get_web_domains
 
 	# What domains can we provision certificates for? What unexpected problems do we have?
 	provision, cant_provision = get_certificates_to_provision(env, show_valid_certs=False)
 
-	# What's the current status of TLS certificates on all of the domain?
-	domains_status = get_web_domains_info(env)
-	domains_status = [
-		{
-			"domain": d["domain"],
-			"status": d["ssl_certificate"][0],
-			"text": d["ssl_certificate"][1] + (" " + cant_provision[d["domain"]] if d["domain"] in cant_provision else "")
-		} for d in domains_status ]
+	# What's the current status of TLS certificates on all of the domains?
+	ssl_certificates = get_ssl_certificates(env)
+	domains_status = []
+	for domain in get_web_domains(env):
+		try:
+			tls_cert = get_domain_ssl_files(domain, ssl_certificates, env, allow_missing_cert=True)
+		except OSError:
+			tls_cert = None
+		if tls_cert is None:
+			cert_status = ("danger", "No certificate installed.")
+		else:
+			status, details = check_certificate(domain, tls_cert["certificate"], tls_cert["private-key"])
+			if status == "OK":
+				cert_status = ("success", "Signed & valid. " + details)
+			elif status == "SELF-SIGNED":
+				cert_status = ("warning", "Self-signed. Get a signed certificate to stop warnings.")
+			else:
+				cert_status = ("danger", "Certificate has a problem: " + status)
+		domains_status.append({
+			"domain": domain,
+			"status": cert_status[0],
+			"text": cert_status[1] + (" " + cant_provision[domain] if domain in cant_provision else ""),
+		})
 
 	# Warn the user about domain names not hosted here because of other settings.
 	for domain in set(get_web_domains(env, exclude_dns_elsewhere=False)) - set(get_web_domains(env)):
 		domains_status.append({
 			"domain": domain,
 			"status": "not-applicable",
-			"text": "The domain's website is hosted elsewhere.",
+			"text": "Webmail is hosted elsewhere for this domain.",
 		})
 
 	return json_response({
@@ -464,7 +484,7 @@ def ssl_get_csr(domain):
 @app.route('/ssl/install', methods=['POST'])
 @authorized_personnel_only
 def ssl_install_cert():
-	from web_update import get_web_domains
+	from nginx_update import get_web_domains
 	from ssl_certificates import install_cert
 	domain = request.form.get('domain')
 	ssl_cert = request.form.get('cert')
@@ -534,20 +554,6 @@ def totp_post_disable():
 		return "OK"
 	# error
 	return ("Invalid user or MFA id.", 400)
-
-# WEB
-
-@app.route('/web/domains')
-@authorized_personnel_only
-def web_get_domains():
-	from web_update import get_web_domains_info
-	return json_response(get_web_domains_info(env))
-
-@app.route('/web/update', methods=['POST'])
-@authorized_personnel_only
-def web_update():
-	from web_update import do_web_update
-	return do_web_update(env)
 
 # System
 

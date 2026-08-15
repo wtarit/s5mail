@@ -21,13 +21,12 @@ DOMAIN_RE = r"^(?!\-)(?:[*][.])?(?:[a-zA-Z\d\-_]{0,62}[a-zA-Z\d_]\.){1,126}(?!\d
 
 def get_dns_domains(env):
 	# Add all domain names in use by email users and mail aliases, any
-	# domains we serve web for (except www redirects because that would
-	# lead to infinite recursion here) and ensure PRIMARY_HOSTNAME is in the list.
+	# automatic service domains, and ensure PRIMARY_HOSTNAME is in the list.
 	from mailconfig import get_mail_domains
-	from web_update import get_web_domains
+	from nginx_update import get_web_domains
 	domains = set()
 	domains |= set(get_mail_domains(env))
-	domains |= set(get_web_domains(env, include_www_redirects=False))
+	domains |= set(get_web_domains(env))
 	domains.add(env['PRIMARY_HOSTNAME'])
 	return domains
 
@@ -136,12 +135,12 @@ def build_zones(env):
 	# Create a dictionary of domains to a set of attributes for each
 	# domain, such as whether there are mail users at the domain.
 	from mailconfig import get_mail_domains
-	from web_update import get_web_domains
+	from nginx_update import get_web_domains
 	mail_domains = set(get_mail_domains(env))
 	mail_user_domains = set(get_mail_domains(env, users_only=True)) # i.e. will log in for mail, Nextcloud
 	web_domains = set(get_web_domains(env))
 	auto_domains = web_domains - set(get_web_domains(env, include_auto=False))
-	domains |= auto_domains # www redirects not included in the initial list, see above
+	domains |= auto_domains
 
 	# Add ns1/ns2+PRIMARY_HOSTNAME which must also have A/AAAA records
 	# when the box is acting as authoritative DNS server for its domains.
@@ -237,7 +236,7 @@ def build_zone(domain, domain_properties, additional_records, env, is_zone=True)
 		if has_rec(qname, rtype): continue
 
 		# The "local" keyword on A/AAAA records are short-hand for our own IP.
-		# This also flags for web configuration that the user wants a website here.
+		# This also flags for HTTPS services that the user wants the name here.
 		if rtype == "A" and value == "local":
 			value = env["PUBLIC_IP"]
 		if rtype == "AAAA" and value == "local":
@@ -253,15 +252,14 @@ def build_zone(domain, domain_properties, additional_records, env, is_zone=True)
 	# was set. So set has_rec_base to a clone of the current set of DNS settings, and don't update
 	# during this process.
 	has_rec_base = list(records)
-	a_expl = f"Required. May have a different value. Sets the IP address that {domain} resolves to for web hosting and other services besides mail. The A record must be present but its value does not affect mail delivery."
+	a_expl = f"Required. May have a different value. Sets the IP address that {domain} resolves to for webmail and other services besides mail. The A record must be present but its value does not affect mail delivery."
 	if domain_properties[domain]["auto"]:
 		if domain.startswith(("ns1.", "ns2.")): a_expl = False # omit from 'External DNS' page since this only applies if box is its own DNS server
-		if domain.startswith("www."): a_expl = f"Optional. Sets the IP address that {domain} resolves to so that the box can provide a redirect to the parent domain."
 		if domain.startswith("mta-sts."): a_expl = "Optional. MTA-STS Policy Host serving /.well-known/mta-sts.txt."
 		if domain.startswith("autoconfig."): a_expl = "Provides email configuration autodiscovery support for Thunderbird Autoconfig."
 	defaults = [
 		(None,  "A",    env["PUBLIC_IP"], a_expl),
-		(None,  "AAAA", env.get('PUBLIC_IPV6'), f"Optional. Sets the IPv6 address that {domain} resolves to, e.g. for web hosting. (It is not necessary for receiving mail on this domain.)"),
+		(None,  "AAAA", env.get('PUBLIC_IPV6'), f"Optional. Sets the IPv6 address that {domain} resolves to, e.g. for webmail. (It is not necessary for receiving mail on this domain.)"),
 	]
 	for qname, rtype, value, explanation in defaults:
 		if value is None or value.strip() == "": continue # skip IPV6 if not set
@@ -327,7 +325,7 @@ def build_zone(domain, domain_properties, additional_records, env, is_zone=True)
 	# subdomain must be valid certificate for that domain. Do not set an MTA-STS policy if either
 	# certificate in use is not valid (e.g. because it is self-signed and a valid certificate has not
 	# yet been provisioned). Since we cannot provision a certificate without A/AAAA records, we
-	# always set them (by including them in the www domains) --- only the TXT records depend on there
+	# always set them --- only the TXT records depend on there
 	# being valid certificates.
 	mta_sts_records = [ ]
 	if domain_properties[domain]["mail"] \

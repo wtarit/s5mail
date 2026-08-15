@@ -25,7 +25,6 @@ def test(server, description):
 		#(hostname, "NS", "ns1.%s.;ns2.%s." % (primary_hostname, primary_hostname)),
 		("ns1." + primary_hostname, "A", ipaddr),
 		("ns2." + primary_hostname, "A", ipaddr),
-		("www." + hostname, "A", ipaddr),
 		(hostname, "MX", "10 " + primary_hostname + "."),
 		(hostname, "TXT", '"v=spf1 mx -all"'),
 		("mail._domainkey." + hostname, "TXT", '"v=DKIM1; k=rsa; s=email; " "p=__KEY__"'),
