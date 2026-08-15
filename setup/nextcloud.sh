@@ -75,6 +75,84 @@ tools/editconf.py /etc/php/"$PHP_VER"/mods-available/apcu.ini -c ';' \
 	apc.enabled=1 \
 	apc.enable_cli=1
 
+NEXTCLOUD_CRON_WAS_ACTIVE=0
+NEXTCLOUD_QUIESCE_TRAP_ACTIVE=0
+NEXTCLOUD_UPGRADE_MARKER="$STORAGE_ROOT/owncloud-upgrade-in-progress"
+
+resume_nextcloud_cron_service() {
+	if [ "${NEXTCLOUD_CRON_WAS_ACTIVE:-0}" != 1 ]; then
+		return
+	fi
+
+	if ! service cron start > /dev/null 2>&1; then
+		echo "WARNING: The cron service could not be restarted. Restart it manually with: service cron start" >&2
+	fi
+	NEXTCLOUD_CRON_WAS_ACTIVE=0
+}
+
+quiesce_nextcloud() {
+	# The cron definitions from both Mail-in-a-Box v76 and S5 Mail can launch
+	# Nextcloud CLI writers while PHP-FPM is stopped. Stop cron before removing
+	# the generated definitions so there is no race with cron reading them.
+	if service cron status > /dev/null 2>&1; then
+		NEXTCLOUD_CRON_WAS_ACTIVE=1
+		hide_output service cron stop
+		if service cron status > /dev/null 2>&1; then
+			echo "Cron is still running. Refusing to upgrade Nextcloud." >&2
+			return 1
+		fi
+	fi
+	# A legacy cron definition on an otherwise current database can mean a v76
+	# upgrade stopped after Nextcloud recorded its new version but before the
+	# remaining database maintenance completed.
+	if [ -e /etc/cron.d/mailinabox-nextcloud ] && [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
+		touch "$NEXTCLOUD_UPGRADE_MARKER"
+	fi
+	rm -f /etc/cron.d/mailinabox-nextcloud \
+		/etc/cron.d/s5mail-nextcloud \
+		/etc/cron.d/.s5mail-nextcloud.new
+
+	# Stop web requests and verify the service is actually inactive. A failed
+	# stop must not be ignored before copying or migrating the SQLite database.
+	service php"$PHP_VER"-fpm stop > /dev/null 2>&1 || /bin/true
+	if service php"$PHP_VER"-fpm status > /dev/null 2>&1; then
+		echo "PHP-FPM is still running. Refusing to upgrade Nextcloud." >&2
+		return 1
+	fi
+
+	# Stopping cron does not terminate a job it already launched. Wait for any
+	# existing Nextcloud CLI writer to finish before backing up the database.
+	local process_pattern="php([0-9.]+)?([[:space:]]|$).*(/usr/local/lib/owncloud/cron\\.php|/usr/local/lib/owncloud/occ)"
+	local waited=0
+	while pgrep -f -- "$process_pattern" > /dev/null; do
+		if [ "$waited" -ge 300 ]; then
+			echo "Timed out waiting for these Nextcloud jobs to finish:" >&2
+			pgrep -af -- "$process_pattern" >&2 || /bin/true
+			return 1
+		fi
+		sleep 1
+		waited=$((waited + 1))
+	done
+}
+
+NEXTCLOUD_DATABASE_MAINTENANCE_COMPLETED=0
+
+CompleteNextcloudDatabaseMaintenance() {
+	# These migrations are not included in the normal upgrade because they can
+	# take time. They must complete before advancing to the next major version.
+	sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:add-missing-indices
+	sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:add-missing-primary-keys
+	sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:convert-filecache-bigint --no-interaction
+
+	# Complete queued background migrations before moving to the next major
+	# version, as required by Nextcloud's upgrade procedure.
+	for _ in 1 2 3; do
+		sudo -u www-data php"$PHP_VER" -f /usr/local/lib/owncloud/cron.php
+	done
+
+	NEXTCLOUD_DATABASE_MAINTENANCE_COMPLETED=1
+}
+
 InstallNextcloud() {
 
 	version=$1
@@ -157,18 +235,7 @@ InstallNextcloud() {
 			echo "...which seemed to work."
 		fi
 
-		# Add missing indices. NextCloud didn't include this in the normal upgrade because it might take some time.
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:add-missing-indices
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:add-missing-primary-keys
-
-		# Run conversion to BigInt identifiers, this process may take some time on large tables.
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ db:convert-filecache-bigint --no-interaction
-
-		# Complete queued background migrations before moving to the next major
-		# version, as required by Nextcloud's upgrade procedure.
-		for _ in 1 2 3; do
-			sudo -u www-data php"$PHP_VER" -f /usr/local/lib/owncloud/cron.php
-		done
+		CompleteNextcloudDatabaseMaintenance
 	fi
 }
 
@@ -185,12 +252,19 @@ else
 	CURRENT_NEXTCLOUD_VER=""
 fi
 
+# Every run below executes Nextcloud CLI commands, including when a previous
+# attempt updated the recorded version before a later migration failed. Keep
+# all web and scheduled writers out until configuration is complete.
+trap resume_nextcloud_cron_service EXIT
+NEXTCLOUD_QUIESCE_TRAP_ACTIVE=1
+quiesce_nextcloud
+
 # If the Nextcloud directory is missing (never been installed before, or the nextcloud version to be installed is different
 # from the version currently installed, do the install/upgrade
 if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextcloud_ver ]]; then
-
-	# Stop php-fpm if running. If they are not running (which happens on a previously failed install), dont bail.
-	service php"$PHP_VER"-fpm stop &> /dev/null || /bin/true
+	if [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
+		touch "$NEXTCLOUD_UPGRADE_MARKER"
+	fi
 
 	# Backup the existing ownCloud/Nextcloud.
 	# Create a backup directory to store the current installation and database to
@@ -248,12 +322,16 @@ if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextc
 	fi
 
 	InstallNextcloud $nextcloud_ver $nextcloud_hash $contacts_ver $contacts_hash $calendar_ver $calendar_hash $user_external_ver $user_external_hash
+fi
 
-	# Some migrations are intentionally excluded from the normal upgrade because
-	# they can take a long time. Complete them before bringing Nextcloud back.
-	if [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ maintenance:repair --include-expensive
+# The version in config.php may already be current after an interrupted run.
+# The marker keeps the remaining database work from being skipped on retry.
+if [ -e "$NEXTCLOUD_UPGRADE_MARKER" ]; then
+	if [ "$NEXTCLOUD_DATABASE_MAINTENANCE_COMPLETED" != 1 ]; then
+		CompleteNextcloudDatabaseMaintenance
 	fi
+	sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ maintenance:repair --include-expensive
+	rm -f "$NEXTCLOUD_UPGRADE_MARKER"
 fi
 
 # ### Configuring Nextcloud
@@ -421,18 +499,6 @@ tools/editconf.py /etc/php/"$PHP_VER"/cli/conf.d/10-opcache.ini -c ';' \
 # correct backend already.
 sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" "UPDATE oc_users_external SET backend='127.0.0.1';" || /bin/true
 
-# Set up a general cron job for Nextcloud.
-# Also add another job for Calendar updates, per advice in the Nextcloud docs
-# https://docs.nextcloud.com/server/24/admin_manual/groupware/calendar.html#background-jobs
-rm -f /etc/cron.d/mailinabox-nextcloud
-cat > /etc/cron.d/s5mail-nextcloud << EOF;
-#!/bin/bash
-# S5 Mail
-*/5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/cron.php
-*/5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/occ dav:send-event-reminders
-EOF
-chmod +x /etc/cron.d/s5mail-nextcloud
-
 # We also need to change the sending mode from background-job to occ.
 # Or else the reminders will just be sent as soon as possible when the background jobs run.
 hide_output sudo -u www-data php"$PHP_VER" -f /usr/local/lib/owncloud/occ config:app:set dav sendEventRemindersMode --value occ
@@ -465,3 +531,23 @@ EOF
 
 # Enable PHP modules and restart PHP.
 restart_service php"$PHP_VER"-fpm
+
+# Restore Nextcloud's scheduled jobs only after every database operation and
+# the PHP restart have completed successfully. Write outside cron's filename
+# rules first so a failed write cannot leave an active partial definition.
+cat > /etc/cron.d/.s5mail-nextcloud.new << EOF;
+#!/bin/bash
+# S5 Mail
+*/5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/cron.php
+*/5 * * * *	www-data	php$PHP_VER -f /usr/local/lib/owncloud/occ dav:send-event-reminders
+EOF
+chmod +x /etc/cron.d/.s5mail-nextcloud.new
+mv /etc/cron.d/.s5mail-nextcloud.new /etc/cron.d/s5mail-nextcloud
+
+# Restore cron only if this script stopped it. On successful upgrades the S5
+# Mail Nextcloud cron definition above has replaced either generated legacy
+# definition that was removed before the database migration.
+if [ "$NEXTCLOUD_QUIESCE_TRAP_ACTIVE" = 1 ]; then
+	resume_nextcloud_cron_service
+	trap - EXIT
+fi
