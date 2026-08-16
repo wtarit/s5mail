@@ -7,6 +7,7 @@
 # purpopses only. After this point you are on your own.
 
 source /etc/s5mail.conf # load global vars
+PHP_VER=8.4
 
 ADMIN=$(./mail.py user admins | head -n 1)
 test -z "$1" || ADMIN=$1
@@ -20,4 +21,4 @@ echo
 echo "Press enter to continue."
 read
 
-sudo -u www-data php8.2 /usr/local/lib/owncloud/occ group:adduser admin "$ADMIN" && echo "Done."
+sudo -u www-data "php${PHP_VER}" /usr/local/lib/owncloud/occ group:adduser admin "$ADMIN" && echo "Done."

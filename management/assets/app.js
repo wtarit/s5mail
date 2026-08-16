@@ -12,6 +12,7 @@ import "./panels/ssl.js";
 import "./panels/system-backup.js";
 import "./panels/mfa.js";
 import "./panels/munin.js";
+import "./panels/account-password.js";
 
 initializeModal();
 initializeNavigation();

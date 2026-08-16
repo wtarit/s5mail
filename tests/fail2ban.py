@@ -241,7 +241,7 @@ if __name__ == "__main__":
 	run_test(http_test, ["/admin/munin/", 401], 20, 30, 1)
 
 	# ownCloud
-	run_test(http_test, ["/cloud/remote.php/webdav", 401, None, None, [owncloud_user, "aa"]], 20, 120, 1)
+	run_test(http_test, ["/remote.php/dav", 401, None, None, [owncloud_user, "aa"]], 20, 120, 1)
 
 	# restart fail2ban so that this client machine is no longer blocked
 	restart_fail2ban_service(final=True)

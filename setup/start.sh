@@ -5,30 +5,17 @@
 source setup/functions.sh # load our functions
 
 # An explicit environment setting or command-line option takes precedence over
-# the interactive optional-services checklist.
-if [ -n "${ENABLE_POSTGREY+x}" ]; then
-	POSTGREY_OPTION_SET=1
-else
-	POSTGREY_OPTION_SET=0
-fi
+# the interactive setup prompts.
 if [ -n "${ENABLE_SMTP_RELAY+x}" ]; then
 	SMTP_RELAY_OPTION_SET=1
 else
 	SMTP_RELAY_OPTION_SET=0
 fi
 
-# Postgrey can be selected on the command line. Parse the option before the
-# preflight checks so `setup/start.sh --help` is safe to run on a workstation.
+# Parse command-line options before preflight so `setup/start.sh --help` is
+# safe to run on a workstation.
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		--enable-postgrey)
-			ENABLE_POSTGREY=1
-			POSTGREY_OPTION_SET=1
-			;;
-		--disable-postgrey)
-			ENABLE_POSTGREY=0
-			POSTGREY_OPTION_SET=1
-			;;
 		--enable-smtp-relay)
 			ENABLE_SMTP_RELAY=1
 			SMTP_RELAY_OPTION_SET=1
@@ -57,10 +44,6 @@ while [ "$#" -gt 0 ]; do
 			cat <<'EOF'
 Usage: sudo setup/start.sh [OPTION]...
 
-Optional services:
-  --disable-postgrey    Disable greylisting and remove Postgrey.
-  --enable-postgrey     Enable greylisting (the default).
-
 Outbound mail delivery:
   --enable-smtp-relay             Send outbound mail through an authenticated SMTP relay.
   --disable-smtp-relay            Deliver outbound mail directly (the default).
@@ -81,7 +64,7 @@ EOF
 	shift
 done
 
-# Check system setup: Are we running as root on Ubuntu 18.04 on a
+# Check system setup: Are we running as root on Debian 13 on a
 # machine with enough memory? Is /tmp mounted with exec.
 # If not, this shows an error and exits.
 source setup/preflight.sh
@@ -133,14 +116,6 @@ if [ -n "${PREVIOUS_CONFIG:-}" ]; then
 	rm -f /tmp/s5mail.prev.conf
 else
 	FIRST_TIME_SETUP=1
-fi
-
-# Preserve the existing choice on upgrades. A command-line or environment
-# setting takes precedence so an operator can change it during a setup run.
-ENABLE_POSTGREY="${ENABLE_POSTGREY:-${DEFAULT_ENABLE_POSTGREY:-1}}"
-if [ "$ENABLE_POSTGREY" != "0" ] && [ "$ENABLE_POSTGREY" != "1" ]; then
-	echo "ENABLE_POSTGREY must be either 0 or 1." >&2
-	exit 2
 fi
 
 ENABLE_SMTP_RELAY="${ENABLE_SMTP_RELAY:-${DEFAULT_ENABLE_SMTP_RELAY:-0}}"
@@ -256,7 +231,6 @@ PUBLIC_IPV6=$PUBLIC_IPV6
 PRIVATE_IP=$PRIVATE_IP
 PRIVATE_IPV6=$PRIVATE_IPV6
 MTA_STS_MODE=${DEFAULT_MTA_STS_MODE:-enforce}
-ENABLE_POSTGREY=$ENABLE_POSTGREY
 ENABLE_SMTP_RELAY=$ENABLE_SMTP_RELAY
 SMTP_RELAY_HOST=$SMTP_RELAY_HOST
 SMTP_RELAY_PORT=$SMTP_RELAY_PORT
@@ -272,10 +246,10 @@ source setup/mail-postfix.sh
 source setup/mail-dovecot.sh
 source setup/mail-users.sh
 source setup/dkim.sh
-source setup/spamassassin.sh
+source setup/rspamd.sh
 source setup/web.sh
-source setup/webmail.sh
 source setup/nextcloud.sh
+source setup/remove-roundcube.sh
 source setup/management.sh
 source setup/munin.sh
 
@@ -340,3 +314,10 @@ else
 	echo "Then you can confirm the security exception and continue."
 	echo
 fi
+
+# A side-by-side migration removes this marker before its authoritative final
+# sync. Recreate it only after the complete Debian provisioning run succeeds,
+# allowing the import phase to distinguish preseed setup from reconciled data.
+install -d -m 0750 /var/lib/s5mail
+printf 'completed=%s\n' "$(date --iso-8601=seconds)" > /var/lib/s5mail/debian13-provisioning-complete
+chmod 0600 /var/lib/s5mail/debian13-provisioning-complete

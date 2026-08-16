@@ -28,44 +28,12 @@ fi
 
 # ### User Authentication
 
-# Have Dovecot query our database, and not system users, for authentication.
-sed -i "s/#*\(\!include auth-system.conf.ext\)/#\1/"  /etc/dovecot/conf.d/10-auth.conf
-sed -i "s/#\(\!include auth-sql.conf.ext\)/\1/"  /etc/dovecot/conf.d/10-auth.conf
-
-# Specify how the database is to be queried for user authentication (passdb)
-# and where user mailboxes are stored (userdb).
-cat > /etc/dovecot/conf.d/auth-sql.conf.ext << EOF;
-passdb {
-  driver = sql
-  args = /etc/dovecot/dovecot-sql.conf.ext
-}
-userdb {
-  driver = sql
-  args = /etc/dovecot/dovecot-sql.conf.ext
-}
-EOF
-
-# Configure the SQL to query for a user's metadata and password.
-cat > /etc/dovecot/dovecot-sql.conf.ext << EOF;
-driver = sqlite
-connect = $db_path
-default_pass_scheme = SHA512-CRYPT
-password_query = SELECT email as user, password FROM users WHERE email='%u';
-user_query = SELECT email AS user, "mail" as uid, "mail" as gid, "$STORAGE_ROOT/mail/mailboxes/%d/%n" as home, '*:bytes=' || quota AS quota_rule FROM users WHERE email='%u';
-iterate_query = SELECT email AS user FROM users;
-EOF
-chmod 0600 /etc/dovecot/dovecot-sql.conf.ext # per Dovecot instructions
-
-# Have Dovecot provide an authorization service that Postfix can access & use.
-cat > /etc/dovecot/conf.d/99-local-auth.conf << EOF;
-service auth {
-  unix_listener /var/spool/postfix/private/auth {
-    mode = 0666
-    user = postfix
-    group = postfix
-  }
-}
-EOF
+# Dovecot's SQL passdb/userdb and Postfix SASL socket are rendered in the
+# complete native Dovecot 2.4 configuration by setup/mail-dovecot.sh. Keep the
+# database schema and password hashes unchanged so supported installations can
+# migrate without a credential conversion.
+chown root:dovecot "$db_path"
+chmod 0640 "$db_path"
 
 # And have Postfix use that service. We *disable* it here
 # so that authentication is not permitted on port 25 (which

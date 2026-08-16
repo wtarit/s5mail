@@ -2,6 +2,8 @@
 #
 # This script will restore the backup made during an installation
 source /etc/s5mail.conf # load global vars
+PHP_VER=8.4
+PHP_FPM_SERVICE="php${PHP_VER}-fpm"
 
 if [ -z "$1" ]; then
 	echo "Usage: owncloud-restore.sh <backup directory>"
@@ -26,7 +28,34 @@ if [ ! -f "$1/config.php" ]; then
 fi
 
 echo "Restoring backup from $1"
-service php8.2-fpm stop
+
+RESTORE_STOPPED_SERVICES=()
+restore_nextcloud_services() {
+	local index service
+	for ((index=${#RESTORE_STOPPED_SERVICES[@]}-1; index>=0; index--)); do
+		service=${RESTORE_STOPPED_SERVICES[$index]}
+		systemctl start "$service" >/dev/null 2>&1 || echo "WARNING: Could not restart $service." >&2
+	done
+}
+trap restore_nextcloud_services EXIT
+
+# Establish an exclusive Nextcloud maintenance window before replacing its
+# SQLite database. Preserve the prior state of each writer service.
+for service in cron "$PHP_FPM_SERVICE"; do
+	if systemctl is-active --quiet "$service"; then
+		systemctl stop "$service"
+		RESTORE_STOPPED_SERVICES+=("$service")
+	fi
+done
+waited=0
+while pgrep -f -- '(/usr/local/lib/owncloud/cron\.php|/usr/local/lib/owncloud/occ)' >/dev/null; do
+	if [ "$waited" -ge 300 ]; then
+		echo "Timed out waiting for Nextcloud jobs to finish; restore was not started." >&2
+		exit 1
+	fi
+	sleep 1
+	waited=$((waited + 1))
+done
 
 # remove the current ownCloud/Nextcloud installation
 rm -rf /usr/local/lib/owncloud/
@@ -38,12 +67,18 @@ chmod 750 /usr/local/lib/owncloud/{apps,config}
 
 cp "$1/owncloud.db" "$STORAGE_ROOT/owncloud/"
 cp "$1/config.php" "$STORAGE_ROOT/owncloud/"
+if [ "$(sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" 'PRAGMA integrity_check;')" != "ok" ]; then
+	echo "The restored Nextcloud database failed its integrity check." >&2
+	exit 1
+fi
 
 ln -sf "$STORAGE_ROOT/owncloud/config.php" /usr/local/lib/owncloud/config/config.php
 chown -f -R www-data:www-data "$STORAGE_ROOT/owncloud" /usr/local/lib/owncloud
 chown www-data:www-data "$STORAGE_ROOT/owncloud/config.php"
 
-sudo -u www-data php8.2 /usr/local/lib/owncloud/occ maintenance:mode --off
+sudo -u www-data "php${PHP_VER}" /usr/local/lib/owncloud/occ maintenance:mode --off
 
-service php8.2-fpm start
+restore_nextcloud_services
+RESTORE_STOPPED_SERVICES=()
+trap - EXIT
 echo "Done"

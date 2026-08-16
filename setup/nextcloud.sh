@@ -17,12 +17,11 @@ echo "Installing Nextcloud (contacts/calendar/mail)..."
 # * See https://nextcloud.com/changelog for the latest version.
 # * Check https://docs.nextcloud.com/server/latest/admin_manual/installation/system_requirements.html
 #   for whether it supports the version of PHP available on this machine.
-# * Nextcloud only supports upgrades from consecutive major versions. Existing
-#   installations must follow the upstream migration requirement in README.md.
-# * The hash is the SHA1 hash of the ZIP package, which you can find by just running this script and
-#   copying it from the error message when it doesn't match what is below.
+# * This release supports fresh installs and existing Nextcloud 34 databases.
+#   Cross-major Nextcloud upgrades must be completed before this setup runs.
+# * Release archives are pinned by SHA-256.
 nextcloud_ver=34.0.2
-nextcloud_hash=c0243f16b787e1496fce240b3b68700783c70738
+nextcloud_hash=ffc9e8c3c61c22585d394927cb188bf2f5306fb0119f2fa54739c65fb14c0eb1
 
 # Nextcloud apps
 # --------------
@@ -32,25 +31,23 @@ nextcloud_hash=c0243f16b787e1496fce240b3b68700783c70738
 #   https://apps.nextcloud.com/apps/mail
 #   https://apps.nextcloud.com/apps/user_external
 #
-# * For these packages, the hash is the SHA1 hash of the release package, which
-#   you can find by running this script and copying it from the error message
-#   when it doesn't match what is below:
+# * App release archives are pinned by SHA-256.
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/contacts
 contacts_ver=8.7.5
-contacts_hash=bc91de356a4ce9cbaea1442a572b8d08e4d18a2a
+contacts_hash=9935218201ce3f8d06b3be31a0b6df9fbba23f6993724ff3799686dd873c3ea9
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/calendar
 calendar_ver=6.5.2
-calendar_hash=5dd4a5ed84f6bcb8503cba5f60615fb214e5903d
+calendar_hash=86c7d9c5d0455b3e23154e44b12c92458663577285e59778a03825c8436ab143
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/mail
 mail_ver=5.10.9
-mail_hash=8d1fa84ad513b386857dabca6f91500615f15e2d
+mail_hash=5d996e7eba1408fef399ab4a8bafe59da27cf252c8665c50262fdb09e64b1ccf
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/user_external
 user_external_ver=4.0.0
-user_external_hash=214497dd8691f279ba3740797c565310f0793054
+user_external_hash=f1f98c577bd02177fe74e9199f8e50d0c288ffa94bb50a227101a5ba0633c529
 
 # Developer advice (test plan)
 # ----------------------------
@@ -65,7 +62,7 @@ user_external_hash=214497dd8691f279ba3740797c565310f0793054
 # 5.1 You still can create, edit and delete contacts
 # 5.2 You still can create, edit and delete calendar events
 # 5.3 You still can create, edit and delete users
-# 5.4 Open Mail, add the Nextcloud user's email account, and verify receiving and sending mail
+# 5.4 Open Mail, verify the provisioned account appears, and test receiving and sending mail
 # 5.5 Go to Administration > Logs and ensure no new errors are shown
 
 # Clear prior packages and install dependencies from apt.
@@ -178,14 +175,6 @@ InstallNextcloud() {
 	# Download and verify
 	wget_verify "https://download.nextcloud.com/server/releases/nextcloud-$version.zip" "$hash" /tmp/nextcloud.zip
 
-	# user_external has no release compatible with Nextcloud 30. Disable it while
-	# PHP-FPM is stopped for that maintenance hop, then install its Nextcloud
-	# 31-compatible release on the following hop.
-	if [ -z "$version_user_external" ] && [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ config:system:delete user_backends
-		sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:disable user_external
-	fi
-
 	# Remove the current owncloud/Nextcloud
 	rm -rf /usr/local/lib/owncloud
 
@@ -291,6 +280,15 @@ else
 	CURRENT_NEXTCLOUD_VER=""
 fi
 
+if [ -n "$CURRENT_NEXTCLOUD_VER" ] && [[ ! $CURRENT_NEXTCLOUD_VER =~ ^34\. ]]; then
+	echo "Debian 13 migration requires Nextcloud 34; found $CURRENT_NEXTCLOUD_VER." >&2
+	exit 1
+fi
+if [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ] && [ -z "$CURRENT_NEXTCLOUD_VER" ]; then
+	echo "Cannot determine the version of the existing Nextcloud database; refusing to replace its application code." >&2
+	exit 1
+fi
+
 # Every run below executes Nextcloud CLI commands, including when a previous
 # attempt updated the recorded version before a later migration failed. Keep
 # all web and scheduled writers out until configuration is complete.
@@ -320,53 +318,15 @@ if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextc
 		cp "$STORAGE_ROOT/owncloud/config.php" "$BACKUP_DIRECTORY"
 	fi
 
-	# If ownCloud or Nextcloud was previously installed....
-	if [ -n "${CURRENT_NEXTCLOUD_VER}" ]; then
-		if [ -e "$STORAGE_ROOT/owncloud/config.php" ]; then
-			# Remove the read-onlyness of the config while running migrations.
-			sed -i -e '/config_is_read_only/d' "$STORAGE_ROOT/owncloud/config.php"
-		fi
-
-		# Nextcloud supports upgrades from only one major version at a time.
-		# Use the final maintenance release of each major and app releases that
-		# the Nextcloud app store marks compatible with that server version.
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^26 ]]; then
-			InstallNextcloud 27.1.11 9f30c01a021c2e5a9e7baff119955afb3c552ebc 5.5.4 c4e3f2183a0088b829f8aa1b3af1f87c9a4c46a2 4.7.20 12d876904e227156e39ca4335b18481b42a6d00f 3.4.0 7f9d8f4dd6adb85a0e3d7622d85eeb7bfe53f3b4
-			CURRENT_NEXTCLOUD_VER="27.1.11"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^27 ]]; then
-			InstallNextcloud 28.0.14 8a9edcfd26d318eb7d1cfa44d69796f2d1098a80 5.5.4 c4e3f2183a0088b829f8aa1b3af1f87c9a4c46a2 4.7.20 12d876904e227156e39ca4335b18481b42a6d00f 3.4.0 7f9d8f4dd6adb85a0e3d7622d85eeb7bfe53f3b4
-			CURRENT_NEXTCLOUD_VER="28.0.14"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^28 ]]; then
-			InstallNextcloud 29.0.16 ceb3014aaddc70d3074d2c69bc6afc76eb1aeff0 6.0.7 babb779107b029c30ad20b81da33b4f95e1136ff 4.7.20 12d876904e227156e39ca4335b18481b42a6d00f 3.4.0 7f9d8f4dd6adb85a0e3d7622d85eeb7bfe53f3b4
-			CURRENT_NEXTCLOUD_VER="29.0.16"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^29 ]]; then
-			InstallNextcloud 30.0.17 0494197f1984ce8a2f83084c0759a24d48474017 7.3.19 bd680b3b96f09d013ff3a12eccb352b83f3bcd51 5.5.22 d21e273bda1355ab3b20340ed465f19670a98afc
-			CURRENT_NEXTCLOUD_VER="30.0.17"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^30 ]]; then
-			InstallNextcloud 31.0.14 a891fede2cd4cb3347a406da3fb4f99cd62c89ce 7.3.19 bd680b3b96f09d013ff3a12eccb352b83f3bcd51 5.5.22 d21e273bda1355ab3b20340ed465f19670a98afc 4.0.0 214497dd8691f279ba3740797c565310f0793054
-			CURRENT_NEXTCLOUD_VER="31.0.14"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^31 ]]; then
-			InstallNextcloud 32.0.13 96cf88048279d95aa8c11c8486c9a89f00c7dc55 8.3.17 2bf99586f09d02806e39112cb17f08addd137a6e 6.5.2 5dd4a5ed84f6bcb8503cba5f60615fb214e5903d 4.0.0 214497dd8691f279ba3740797c565310f0793054
-			CURRENT_NEXTCLOUD_VER="32.0.13"
-		fi
-		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^32 ]]; then
-			InstallNextcloud 33.0.7 89a880ee00e95c661400528f18b06526fb494f3a 8.7.5 bc91de356a4ce9cbaea1442a572b8d08e4d18a2a 6.5.2 5dd4a5ed84f6bcb8503cba5f60615fb214e5903d 4.0.0 214497dd8691f279ba3740797c565310f0793054
-			CURRENT_NEXTCLOUD_VER="33.0.7"
-		fi
+	if [ -n "${CURRENT_NEXTCLOUD_VER}" ] && [ -e "$STORAGE_ROOT/owncloud/config.php" ]; then
+		# Let Nextcloud update the configuration while its writers are quiesced.
+		sed -i -e '/config_is_read_only/d' "$STORAGE_ROOT/owncloud/config.php"
 	fi
 
-	InstallNextcloud $nextcloud_ver $nextcloud_hash $contacts_ver $contacts_hash $calendar_ver $calendar_hash $user_external_ver $user_external_hash
+	InstallNextcloud "$nextcloud_ver" "$nextcloud_hash" "$contacts_ver" "$contacts_hash" "$calendar_ver" "$calendar_hash" "$user_external_ver" "$user_external_hash"
 fi
 
-# Mail is managed separately from the core upgrade sequence because the pinned
-# release supports Nextcloud 32-35, but older installations may need to pass
-# through earlier Nextcloud majors first. This also installs Mail when rerunning
-# provisioning on an already-current Nextcloud installation.
+# Install or update Mail even when the Nextcloud 34 core code is already current.
 InstallNextcloudMail "$mail_ver" "$mail_hash"
 
 # Enabling Mail for the first time or updating its code may run app database
@@ -415,8 +375,7 @@ if [ ! -f "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
 
   'forcessl' => true, # if unset/false, Nextcloud sends a HSTS=0 header, which conflicts with nginx config
 
-  'overwritewebroot' => '/cloud',
-  'overwrite.cli.url' => '/cloud',
+  'overwrite.cli.url' => 'https://$PRIMARY_HOSTNAME',
   'user_backends' => array(
     array(
       'class' => '\OCA\UserExternal\IMAP',
@@ -476,12 +435,13 @@ php"$PHP_VER" <<EOF > "$CONFIG_TEMP" && mv "$CONFIG_TEMP" "$STORAGE_ROOT/ownclou
 include("$STORAGE_ROOT/owncloud/config.php");
 
 \$CONFIG['config_is_read_only'] = false;
-\$CONFIG['appstoreenabled'] = false; # Keep installed apps under provisioning control.
 
 \$CONFIG['trusted_domains'] = array('$PRIMARY_HOSTNAME');
 
 \$CONFIG['memcache.local'] = '\OC\Memcache\APCu';
-\$CONFIG['overwrite.cli.url'] = 'https://${PRIMARY_HOSTNAME}/cloud';
+unset(\$CONFIG['overwritewebroot']);
+\$CONFIG['overwrite.cli.url'] = 'https://${PRIMARY_HOSTNAME}';
+\$CONFIG['lost_password_link'] = 'https://${PRIMARY_HOSTNAME}/admin/#account-password';
 
 \$CONFIG['logtimezone'] = '$TIMEZONE';
 \$CONFIG['logdateformat'] = 'Y-m-d H:i:s';
@@ -512,15 +472,13 @@ echo ";";
 EOF
 chown www-data:www-data "$STORAGE_ROOT/owncloud/config.php"
 
-# Enable/disable apps. Note that this must be done after the Nextcloud setup.
-# The firstrunwizard gave Josh all sorts of problems, so disabling that.
-# user_external is what allows Nextcloud to use IMAP for login. The contacts
-# and calendar apps provide groupware, and mail provides the webmail client.
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:disable firstrunwizard
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable user_external
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable contacts
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable calendar
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable mail
+# Enable the appliance integrations after Nextcloud setup. Leave Nextcloud's
+# bundled apps and defaults alone; user_external supplies IMAP-backed login,
+# while contacts, calendar, and mail provide the selected groupware features.
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable user_external
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable contacts
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable calendar
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable mail
 
 # When upgrading, run the upgrade script again now that apps are enabled. It seems like
 # the first upgrade at the top won't work because apps may be disabled during upgrade?
@@ -528,11 +486,6 @@ hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php a
 sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ upgrade
 E=$?
 if [ $E -ne 0 ] && [ $E -ne 3 ]; then exit 1; fi
-
-# Disable default apps that we don't support
-sudo -u www-data \
-	php"$PHP_VER" /usr/local/lib/owncloud/occ app:disable photos dashboard activity \
-	| (grep -v "No such app enabled" || /bin/true)
 
 # Set PHP FPM values to support large file uploads
 # (semicolon is the comment character in this file, hashes produce deprecation warnings)
@@ -554,21 +507,9 @@ tools/editconf.py /etc/php/"$PHP_VER"/cli/conf.d/10-opcache.ini -c ';' \
 	opcache.save_comments=1 \
 	opcache.revalidate_freq=1
 
-# Migrate users_external data from <0.6.0 to version 3.0.0
-# (see https://github.com/nextcloud/user_external).
-# This version was probably in use in the original project's v0.41 release
-# (February 26, 2019) and earlier.
-# We moved to v0.6.3 in 193763f8. Ignore errors - maybe there are duplicated users with the
-# correct backend already.
-sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" "UPDATE oc_users_external SET backend='127.0.0.1';" || /bin/true
-
 # We also need to change the sending mode from background-job to occ.
 # Or else the reminders will just be sent as soon as possible when the background jobs run.
 hide_output sudo -u www-data php"$PHP_VER" -f /usr/local/lib/owncloud/occ config:app:set dav sendEventRemindersMode --value occ
-
-# Now set the config to read-only.
-# Do this only at the very bottom when no further occ commands are needed.
-sed -i'' "s/'config_is_read_only'\s*=>\s*false/'config_is_read_only' => true/" "$STORAGE_ROOT/owncloud/config.php"
 
 # Rotate the nextcloud.log file
 cat > /etc/logrotate.d/nextcloud <<EOF
@@ -583,14 +524,9 @@ $STORAGE_ROOT/owncloud/nextcloud.log {
 }
 EOF
 
-# There's nothing much of interest that a user could do as an admin for Nextcloud,
-# and there's a lot they could mess up, so we don't make any users admins of Nextcloud.
-# But if we wanted to, we would do this:
-# ```
-# for user in $(management/cli.py user admins); do
-#	 sqlite3 $STORAGE_ROOT/owncloud/owncloud.db "INSERT OR IGNORE INTO oc_group_user VALUES ('admin', '$user')"
-# done
-# ```
+# Nextcloud administration remains a separate privilege boundary. A local
+# break-glass administrator is created above; use tools/owncloud-unlockadmin.sh
+# to promote a chosen account through Nextcloud's supported occ interface.
 
 # Enable PHP modules and restart PHP.
 restart_service php"$PHP_VER"-fpm
@@ -606,6 +542,11 @@ cat > /etc/cron.d/.s5mail-nextcloud.new << EOF;
 EOF
 chmod +x /etc/cron.d/.s5mail-nextcloud.new
 mv /etc/cron.d/.s5mail-nextcloud.new /etc/cron.d/s5mail-nextcloud
+
+echo "Nextcloud Mail is installed at https://$PRIMARY_HOSTNAME/apps/mail/."
+echo "In Nextcloud Settings > Administration > Mail, create one provisioning profile using:"
+echo "  IMAP $PRIMARY_HOSTNAME:993 SSL, SMTP $PRIMARY_HOSTNAME:587 STARTTLS, Sieve $PRIMARY_HOSTNAME:4190 STARTTLS"
+echo "  Email %EMAIL%, username %USERID%, and no master password."
 
 # Restore cron only if this script stopped it. On successful upgrades the S5
 # Mail Nextcloud cron definition above has replaced either generated legacy

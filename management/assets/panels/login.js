@@ -63,13 +63,15 @@ function do_login() {
           doLogout();
         }
       } else if (!("api_key" in response)) {
-        // Login succeeded but user might not be authorized!
-        show_modal_error("Login Failed", "You are not an administrator on this system.");
-
-        // Reset any saved credentials.
+        // A successful authentication must include a session key. This is
+        // independent of whether the account is an administrator: regular
+        // mail users need the session for self-service password changes and
+        // their mail/sync instructions.
+        show_modal_error("Login Failed", "The server did not return a session.");
         doLogout();
       } else {
-        // Login succeeded.
+        // Login succeeded. Admin-only panels are hidden by show_hide_menus,
+        // while regular users retain access to self-service panels.
 
         // Save the new credentials.
         setCredentials({

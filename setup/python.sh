@@ -3,7 +3,7 @@
 source setup/functions.sh
 
 # Provision the Python runtime and all Python packages independently of
-# Ubuntu's system Python.
+# Debian's system Python.
 
 uv_version=0.11.30
 python_version=3.14.6
