@@ -15,6 +15,13 @@ source setup/functions.sh # load our functions
 echo "$PRIMARY_HOSTNAME" > /etc/hostname
 hostname "$PRIMARY_HOSTNAME"
 
+# Debian cloud images commonly retain the image hostname on the conventional
+# 127.0.1.1 entry. Keep the active appliance hostname locally resolvable before
+# DNS zones are generated so sudo and other local tools do not emit resolution
+# failures during the rest of setup.
+sed -i '/^127\.0\.1\.1[[:space:]]/d' /etc/hosts
+printf '127.0.1.1\t%s %s\n' "$PRIMARY_HOSTNAME" "${PRIMARY_HOSTNAME%%.*}" >> /etc/hosts
+
 # ### Fix permissions
 
 # Some cloud images throw warnings during setup about incorrect

@@ -452,7 +452,10 @@ def build_sshfp_records():
 	if not port:
 		return
 
-	keys = shell("check_output", ["ssh-keyscan", "-4", "-t", "rsa,dsa,ecdsa,ed25519", "-p", str(port), "localhost"])
+	# OpenSSH 10 in Debian 13 no longer recognizes DSA host keys. Request only
+	# algorithms that Debian's sshd can actually expose; including an unknown
+	# type makes ssh-keyscan fail the entire DNS update.
+	keys = shell("check_output", ["ssh-keyscan", "-4", "-t", "rsa,ecdsa,ed25519", "-p", str(port), "localhost"])
 	keys = sorted(keys.split("\n"))
 
 	for key in keys:

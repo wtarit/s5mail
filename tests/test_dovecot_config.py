@@ -15,6 +15,12 @@ class Dovecot24ConfigurationTests(unittest.TestCase):
 	def setUp(self):
 		with open(TEMPLATE_PATH, encoding="utf-8") as template_file:
 			self.template = template_file.read()
+		with open(os.path.join(REPOSITORY_ROOT, "setup", "mail-dovecot.sh"), encoding="utf-8") as setup_file:
+			self.setup = setup_file.read()
+
+	def test_creates_the_optional_debian_sysctl_file(self):
+		self.assertIn("if [ ! -e /etc/sysctl.conf ]; then", self.setup)
+		self.assertIn("install -m 0644 /dev/null /etc/sysctl.conf", self.setup)
 
 	def test_uses_a_complete_native_24_configuration(self):
 		self.assertIn("dovecot_config_version = 2.4.0", self.template)

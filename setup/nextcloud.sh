@@ -267,6 +267,85 @@ InstallNextcloudMail() {
 	NEXTCLOUD_MAIL_CODE_CHANGED=1
 }
 
+# Configure Mail through the same authenticated HTTP API used by Nextcloud's
+# Administration > Mail UI. The short-lived app password is sent only to the
+# loopback address and is removed on every exit path. --insecure is intentional
+# here: the first provisioning run happens before a public certificate can be
+# issued, while --resolve guarantees the request cannot leave this host.
+ConfigureNextcloudMailProvisioning() (
+	local occ=(sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ)
+	local token_name="s5mail-setup-$$-$RANDOM"
+	local token_output app_password
+	local profiles_file desired_file result profile_id profile_matches
+
+	cleanup_nextcloud_mail_token() {
+		local token_ids token_id
+		token_ids=$("${occ[@]}" user:auth-tokens:list root --output=json 2>/dev/null \
+			| python3 -c 'import json, sys; name=sys.argv[1]; print(" ".join(str(token["id"]) for token in json.load(sys.stdin) if token.get("name") == name))' "$token_name" \
+			|| /bin/true)
+		for token_id in $token_ids; do
+			"${occ[@]}" user:auth-tokens:delete root "$token_id" --no-interaction > /dev/null 2>&1 || /bin/true
+		done
+		if [ -n "${profiles_file:-}" ]; then rm -f "$profiles_file"; fi
+		if [ -n "${desired_file:-}" ]; then rm -f "$desired_file"; fi
+	}
+	trap cleanup_nextcloud_mail_token EXIT
+
+	token_output=$("${occ[@]}" user:auth-tokens:add --name "$token_name" root --no-interaction)
+	app_password=$(printf '%s\n' "$token_output" | tail -n 1)
+	if [ -z "$app_password" ]; then
+		echo "Nextcloud did not return the temporary app password needed to configure Mail." >&2
+		return 1
+	fi
+
+	profiles_file=$(mktemp)
+	desired_file=$(mktemp)
+	cat > "$desired_file" <<EOF
+{"data":{"provisioningDomain":"*","emailTemplate":"%USERID%","imapUser":"%USERID%","imapHost":"$PRIMARY_HOSTNAME","imapPort":993,"imapSslMode":"ssl","smtpUser":"%USERID%","smtpHost":"$PRIMARY_HOSTNAME","smtpPort":587,"smtpSslMode":"tls","masterPasswordEnabled":false,"masterPassword":null,"sieveEnabled":true,"sieveUser":"%USERID%","sieveHost":"$PRIMARY_HOSTNAME","sievePort":4190,"sieveSslMode":"tls","ldapAliasesProvisioning":false,"ldapAliasesAttribute":""}}
+EOF
+
+	printf 'user = "root:%s"\n' "$app_password" \
+		| curl --config - --fail --silent --show-error --insecure \
+			--resolve "$PRIMARY_HOSTNAME:443:127.0.0.1" \
+			--header "OCS-APIRequest: true" \
+			"https://$PRIMARY_HOSTNAME/apps/mail/api/settings/provisioning" \
+			--output "$profiles_file"
+
+	result=$(python3 - "$profiles_file" "$desired_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as file:
+	profiles = json.load(file)
+with open(sys.argv[2], encoding="utf-8") as file:
+	desired = json.load(file)["data"]
+
+wildcards = [profile for profile in profiles if profile.get("provisioningDomain") == "*"]
+if not wildcards:
+	print("new\tfalse")
+else:
+	profile = wildcards[0]
+	matches = all(profile.get(key) == value for key, value in desired.items())
+	print(f"{profile['id']}\t{str(matches).lower()}")
+PY
+	)
+	IFS=$'\t' read -r profile_id profile_matches <<< "$result"
+
+	if [ "$profile_matches" != true ]; then
+		local endpoint="https://$PRIMARY_HOSTNAME/apps/mail/api/settings/provisioning"
+		if [ "$profile_id" != new ]; then endpoint="$endpoint/$profile_id"; fi
+		printf 'user = "root:%s"\n' "$app_password" \
+			| curl --config - --fail --silent --show-error --insecure \
+				--resolve "$PRIMARY_HOSTNAME:443:127.0.0.1" \
+				--header "OCS-APIRequest: true" \
+				--header "Content-Type: application/json" \
+				--request POST \
+				--data-binary "@$desired_file" \
+				"$endpoint" \
+				--output /dev/null
+	fi
+)
+
 # Current Nextcloud Version, #1623
 # Checking /usr/local/lib/owncloud/version.php shows version of the Nextcloud application, not the DB
 # $STORAGE_ROOT/owncloud is kept together even during a backup. It is better to rely on config.php than
@@ -376,14 +455,6 @@ if [ ! -f "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
   'forcessl' => true, # if unset/false, Nextcloud sends a HSTS=0 header, which conflicts with nginx config
 
   'overwrite.cli.url' => 'https://$PRIMARY_HOSTNAME',
-  'user_backends' => array(
-    array(
-      'class' => '\OCA\UserExternal\IMAP',
-      'arguments' => array(
-        '127.0.0.1', 143, null, null, false, false
-       ),
-    ),
-  ),
   'memcache.local' => '\OC\Memcache\APCu',
 );
 ?>
@@ -416,6 +487,10 @@ EOF
 	# settings and deletes the autoconfig.php file.
 	(cd /usr/local/lib/owncloud || exit; sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/index.php;)
 fi
+
+# Load the external backend before referencing its class from config.php. This
+# avoids a spurious "User backend not found" error during a fresh installation.
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable user_external
 
 # Update config.php.
 # * trusted_domains is reset to localhost by autoconfig starting with ownCloud 8.1.1,
@@ -475,7 +550,6 @@ chown www-data:www-data "$STORAGE_ROOT/owncloud/config.php"
 # Enable the appliance integrations after Nextcloud setup. Leave Nextcloud's
 # bundled apps and defaults alone; user_external supplies IMAP-backed login,
 # while contacts, calendar, and mail provide the selected groupware features.
-hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable user_external
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable contacts
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable calendar
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enable mail
@@ -544,9 +618,6 @@ chmod +x /etc/cron.d/.s5mail-nextcloud.new
 mv /etc/cron.d/.s5mail-nextcloud.new /etc/cron.d/s5mail-nextcloud
 
 echo "Nextcloud Mail is installed at https://$PRIMARY_HOSTNAME/apps/mail/."
-echo "In Nextcloud Settings > Administration > Mail, create one provisioning profile using:"
-echo "  IMAP $PRIMARY_HOSTNAME:993 SSL, SMTP $PRIMARY_HOSTNAME:587 STARTTLS, Sieve $PRIMARY_HOSTNAME:4190 STARTTLS"
-echo "  Email %EMAIL%, username %USERID%, and no master password."
 
 # Restore cron only if this script stopped it. On successful upgrades the S5
 # Mail Nextcloud cron definition above has replaced either generated legacy

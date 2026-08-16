@@ -1,6 +1,7 @@
 #!/bin/bash
 # If there aren't any mail users yet, create one.
-if [ -z "$(management/cli.py user)" ]; then
+MAIL_USERS=$(management/cli.py user)
+if [ -z "$MAIL_USERS" ]; then
 	# The output of "management/cli.py user" is a list of mail users. If there
 	# aren't any yet, it'll be empty.
 
@@ -50,9 +51,29 @@ if [ -z "$(management/cli.py user)" ]; then
 	# Create the user's mail account. This will ask for a password if none was given above.
 	management/cli.py user add "$EMAIL_ADDR" ${EMAIL_PW:+"$EMAIL_PW"}
 
-	# Make it an admin.
-	hide_output management/cli.py user make-admin "$EMAIL_ADDR"
+	MAIL_USERS=$(management/cli.py user)
+fi
 
-	# Create an alias to which we'll direct all automatically-created administrative aliases.
-	management/cli.py alias add "administrator@$PRIMARY_HOSTNAME" "$EMAIL_ADDR" > /dev/null
+# Account creation commits before DNS and nginx regeneration. If a later setup
+# action failed, a rerun sees the user but must still finish the privilege and
+# required-alias steps instead of treating first-user setup as complete.
+MAIL_ADMINS=$(management/cli.py user admins)
+if [ -z "$MAIL_ADMINS" ]; then
+	if [ -z "${EMAIL_ADDR:-}" ]; then
+		EMAIL_ADDR=$(printf '%s\n' "$MAIL_USERS" | sed -n '1{s/\*$//;p;}')
+	fi
+	if [ -z "$EMAIL_ADDR" ]; then
+		echo "Unable to select a mail user for initial administrator access." >&2
+		exit 1
+	fi
+	hide_output management/cli.py user make-admin "$EMAIL_ADDR"
+	MAIL_ADMINS=$(management/cli.py user admins)
+fi
+
+# Create the required administrative alias if an interrupted setup did not
+# reach this step. Preserve an existing operator-selected destination.
+ADMIN_ALIAS="administrator@$PRIMARY_HOSTNAME"
+if [ -z "$(sqlite3 "$STORAGE_ROOT/mail/users.sqlite" "SELECT 1 FROM aliases WHERE source='$ADMIN_ALIAS' LIMIT 1;")" ]; then
+	ADMIN_DESTINATION=$(printf '%s\n' "$MAIL_ADMINS" | sed -n '1p')
+	management/cli.py alias add "$ADMIN_ALIAS" "$ADMIN_DESTINATION" > /dev/null
 fi

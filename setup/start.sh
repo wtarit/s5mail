@@ -272,6 +272,11 @@ restart_service fail2ban
 # If there aren't any mail users yet, create one.
 source setup/firstuser.sh
 
+# nginx and PHP-FPM are now serving Nextcloud at its final URL. Configure the
+# Mail app's supported provisioning profile so users inherit their authenticated
+# IMAP/SMTP/Sieve account without entering the same credentials a second time.
+ConfigureNextcloudMailProvisioning
+
 # Register with Let's Encrypt, including agreeing to the Terms of Service.
 # We'd let certbot ask the user interactively, but when this script is
 # run in the recommended curl-pipe-to-bash method there is no TTY and

@@ -90,8 +90,13 @@ if [ -e /lib/systemd/system/mailinabox.service ] || [ -L /lib/systemd/system/mai
 	systemctl disable --now mailinabox.service >/dev/null 2>&1 || true
 	rm -f /lib/systemd/system/mailinabox.service
 fi
-cp --remove-destination conf/s5mail.service /lib/systemd/system/s5mail.service # target may be a symlink, so remove it first
-hide_output systemctl link -f /lib/systemd/system/s5mail.service
+# Appliance-managed units belong in /etc. A unit copied to Debian's vendor
+# directory and then linked into /etc is classified as a linked unit, which
+# systemctl refuses to enable. Remove that legacy layout and install a regular
+# local unit instead.
+rm -f /lib/systemd/system/s5mail.service
+cp --remove-destination conf/s5mail.service /etc/systemd/system/s5mail.service
+chmod 0644 /etc/systemd/system/s5mail.service
 hide_output systemctl daemon-reload
 hide_output systemctl enable s5mail.service
 

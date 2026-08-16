@@ -13,6 +13,9 @@ apt_install \
 
 # Keep enough inotify watches for IMAP IDLE clients. A reboot is required for
 # a changed sysctl value to take effect, which setup deliberately does not do.
+if [ ! -e /etc/sysctl.conf ]; then
+	install -m 0644 /dev/null /etc/sysctl.conf
+fi
 tools/editconf.py /etc/sysctl.conf fs.inotify.max_user_instances=1024
 
 escape_sed_replacement() {
