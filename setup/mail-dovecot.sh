@@ -8,7 +8,7 @@ source /etc/s5mail.conf
 
 echo "Installing Dovecot (IMAP server)..."
 apt_install \
-	dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-sqlite sqlite3 \
+	dovecot-core dovecot-imapd dovecot-lmtpd dovecot-sqlite sqlite3 \
 	dovecot-sieve dovecot-managesieved
 
 # Keep enough inotify watches for IMAP IDLE clients. A reboot is required for
@@ -73,7 +73,6 @@ compile_sieve_scripts
 # Expose only the encrypted public mail protocols. The localhost IMAP listener
 # for Nextcloud is intentionally not added to the firewall.
 ufw_allow imaps
-ufw_allow pop3s
 ufw_allow sieve
 
 restart_service dovecot

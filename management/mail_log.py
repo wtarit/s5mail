@@ -730,7 +730,7 @@ if __name__ == "__main__":
                         action="store_true")
     parser.add_argument("-s", "--sent", help="Scan for sent emails.",
                         action="store_true")
-    parser.add_argument("-l", "--logins", help="Scan for user logins to IMAP/POP3.",
+    parser.add_argument("-l", "--logins", help="Scan for user logins to IMAP/ManageSieve.",
                         action="store_true")
     parser.add_argument("-b", "--blocked", help="Scan for blocked emails.",
                         action="store_true")
