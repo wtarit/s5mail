@@ -7,7 +7,7 @@ source /etc/s5mail.conf # load global vars
 
 # ### Installing Nextcloud
 
-echo "Installing Nextcloud (contacts/calendar)..."
+echo "Installing Nextcloud (contacts/calendar/mail)..."
 
 # Nextcloud core and app (plugin) versions to install.
 # With each version we store a hash to ensure we install what we expect.
@@ -29,11 +29,12 @@ nextcloud_hash=c0243f16b787e1496fce240b3b68700783c70738
 # * Find the most recent release that is compatible with the Nextcloud version above by:
 #   https://apps.nextcloud.com/apps/contacts
 #   https://apps.nextcloud.com/apps/calendar
+#   https://apps.nextcloud.com/apps/mail
 #   https://apps.nextcloud.com/apps/user_external
 #
-# * For these three packages, contacts, calendar and user_external, the hash is the SHA1 hash of
-# the release package, which you can find by just running this script and copying it from
-# the error message when it doesn't match what is below:
+# * For these packages, the hash is the SHA1 hash of the release package, which
+#   you can find by running this script and copying it from the error message
+#   when it doesn't match what is below:
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/contacts
 contacts_ver=8.7.5
@@ -42,6 +43,10 @@ contacts_hash=bc91de356a4ce9cbaea1442a572b8d08e4d18a2a
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/calendar
 calendar_ver=6.5.2
 calendar_hash=5dd4a5ed84f6bcb8503cba5f60615fb214e5903d
+
+# Always ensure the versions are supported, see https://apps.nextcloud.com/apps/mail
+mail_ver=5.10.9
+mail_hash=8d1fa84ad513b386857dabca6f91500615f15e2d
 
 # Always ensure the versions are supported, see https://apps.nextcloud.com/apps/user_external
 user_external_ver=4.0.0
@@ -60,7 +65,8 @@ user_external_hash=214497dd8691f279ba3740797c565310f0793054
 # 5.1 You still can create, edit and delete contacts
 # 5.2 You still can create, edit and delete calendar events
 # 5.3 You still can create, edit and delete users
-# 5.4 Go to Administration > Logs and ensure no new errors are shown
+# 5.4 Open Mail, add the Nextcloud user's email account, and verify receiving and sending mail
+# 5.5 Go to Administration > Logs and ensure no new errors are shown
 
 # Clear prior packages and install dependencies from apt.
 apt-get purge -qq -y owncloud* # we used to use the package manager
@@ -136,6 +142,7 @@ quiesce_nextcloud() {
 }
 
 NEXTCLOUD_DATABASE_MAINTENANCE_COMPLETED=0
+NEXTCLOUD_MAIL_CODE_CHANGED=0
 
 CompleteNextcloudDatabaseMaintenance() {
 	# These migrations are not included in the normal upgrade because they can
@@ -239,6 +246,38 @@ InstallNextcloud() {
 	fi
 }
 
+InstallNextcloudMail() {
+	local version=$1
+	local hash=$2
+	local app_dir=/usr/local/lib/owncloud/apps/mail
+	local installed_version=""
+
+	if [ -f "$app_dir/appinfo/info.xml" ]; then
+		installed_version=$(sed -n 's|.*<version>\([^<]*\)</version>.*|\1|p' "$app_dir/appinfo/info.xml" | head -n 1)
+	fi
+	if [ "$installed_version" = "$version" ]; then
+		return
+	fi
+
+	# Download and verify the complete release before replacing existing app
+	# code. Mail's account state remains in the Nextcloud database.
+	wget_verify "https://github.com/nextcloud-releases/mail/releases/download/v$version/mail-v$version.tar.gz" "$hash" /tmp/mail.tgz
+	local staging_dir
+	staging_dir=$(mktemp -d /usr/local/lib/owncloud/apps/.mail.XXXXXX)
+	tar xf /tmp/mail.tgz -C "$staging_dir"
+	if [ ! -f "$staging_dir/mail/appinfo/info.xml" ]; then
+		echo "The Nextcloud Mail release does not contain the expected app files." >&2
+		return 1
+	fi
+
+	rm -rf "$app_dir"
+	mv "$staging_dir/mail" "$app_dir"
+	rmdir "$staging_dir"
+	rm -f /tmp/mail.tgz
+	chown -R www-data:www-data "$app_dir"
+	NEXTCLOUD_MAIL_CODE_CHANGED=1
+}
+
 # Current Nextcloud Version, #1623
 # Checking /usr/local/lib/owncloud/version.php shows version of the Nextcloud application, not the DB
 # $STORAGE_ROOT/owncloud is kept together even during a backup. It is better to rely on config.php than
@@ -322,6 +361,29 @@ if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextc
 	fi
 
 	InstallNextcloud $nextcloud_ver $nextcloud_hash $contacts_ver $contacts_hash $calendar_ver $calendar_hash $user_external_ver $user_external_hash
+fi
+
+# Mail is managed separately from the core upgrade sequence because the pinned
+# release supports Nextcloud 32-35, but older installations may need to pass
+# through earlier Nextcloud majors first. This also installs Mail when rerunning
+# provisioning on an already-current Nextcloud installation.
+InstallNextcloudMail "$mail_ver" "$mail_hash"
+
+# Enabling Mail for the first time or updating its code may run app database
+# migrations below. On an already-current Nextcloud installation there is no
+# core-upgrade backup, so make one here while web and cron writers are stopped.
+if [ -e "$STORAGE_ROOT/owncloud/owncloud.db" ]; then
+	mail_enabled=$(sqlite3 "$STORAGE_ROOT/owncloud/owncloud.db" \
+		"SELECT 1 FROM oc_appconfig WHERE appid='mail' AND configkey='enabled' AND configvalue <> 'no' LIMIT 1;" \
+		|| /bin/true)
+	if [ "$NEXTCLOUD_MAIL_CODE_CHANGED" = 1 ] || [ -z "$mail_enabled" ]; then
+		MAIL_BACKUP_DIRECTORY=$STORAGE_ROOT/owncloud-backup/$(date +"%Y-%m-%d-%T")-before-mail-$mail_ver
+		mkdir -p "$MAIL_BACKUP_DIRECTORY"
+		cp "$STORAGE_ROOT/owncloud/owncloud.db" "$MAIL_BACKUP_DIRECTORY"
+		if [ -e "$STORAGE_ROOT/owncloud/config.php" ]; then
+			cp "$STORAGE_ROOT/owncloud/config.php" "$MAIL_BACKUP_DIRECTORY"
+		fi
+	fi
 fi
 
 # The version in config.php may already be current after an interrupted run.
@@ -453,11 +515,12 @@ chown www-data:www-data "$STORAGE_ROOT/owncloud/config.php"
 # Enable/disable apps. Note that this must be done after the Nextcloud setup.
 # The firstrunwizard gave Josh all sorts of problems, so disabling that.
 # user_external is what allows Nextcloud to use IMAP for login. The contacts
-# and calendar apps are the extensions we really care about here.
+# and calendar apps provide groupware, and mail provides the webmail client.
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:disable firstrunwizard
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable user_external
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable contacts
 hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable calendar
+hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/console.php app:enable mail
 
 # When upgrading, run the upgrade script again now that apps are enabled. It seems like
 # the first upgrade at the top won't work because apps may be disabled during upgrade?
