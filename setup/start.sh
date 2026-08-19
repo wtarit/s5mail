@@ -82,7 +82,7 @@ fi
 export LANGUAGE=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
-export LC_TYPE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
 
 # Fix so line drawing characters are shown correctly in Putty on Windows. See #744.
 export NCURSES_NO_UTF8_ACS=1
