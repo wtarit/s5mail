@@ -503,7 +503,8 @@ hide_output sudo -u www-data php"$PHP_VER" /usr/local/lib/owncloud/occ app:enabl
 # * mail_domain' needs to be set every time we run the setup. Making sure we are setting
 #   the correct domain name if the domain is being change from the previous setup.
 # Use PHP to read the settings file, modify it, and write out the new settings array.
-TIMEZONE=$(cat /etc/timezone)
+TIMEZONE_PATH=$(readlink -f /etc/localtime)
+TIMEZONE=${TIMEZONE_PATH#/usr/share/zoneinfo/}
 CONFIG_TEMP=$(/bin/mktemp)
 php"$PHP_VER" <<EOF > "$CONFIG_TEMP" && mv "$CONFIG_TEMP" "$STORAGE_ROOT/owncloud/config.php";
 <?php

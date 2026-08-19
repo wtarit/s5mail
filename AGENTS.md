@@ -3,7 +3,7 @@
 ## Project context
 
 - Prioritize S5 Mail's requirements, maintainability, and user experience; compatibility with other projects is not a requirement.
-- The project provisions and manages a complete mail server appliance on Ubuntu. Changes can affect live mail delivery, DNS, authentication, TLS, backups, networking, and stored user data, so treat operational behavior and upgrades carefully.
+- This release provisions and manages a complete mail server appliance on Debian 13, which is the first-class supported platform. Changes can affect live mail delivery, DNS, authentication, TLS, backups, networking, and stored user data, so treat operational behavior and upgrades carefully.
 - Setup must remain repeatable and idempotent. Re-running provisioning on an existing installation should converge on the intended state without losing user data or duplicating configuration.
 
 ## Repository map
@@ -17,11 +17,11 @@
 
 ## Development principles
 
-- Follow existing patterns in the subsystem being changed, but improve structure when it materially reduces complexity or risk.
 - Keep service configuration, management behavior, status checks, backup/restore behavior, and user-facing documentation consistent with one another.
 - Preserve existing installations and user-managed data. When configuration or persistent state changes, provide safe defaults and an explicit migration path where needed.
 - Keep secrets, credentials, private keys, mailbox contents, and other sensitive data out of logs, diffs, fixtures, and error messages.
 - Prefer clear, direct implementations over extra abstraction. Avoid unrelated refactors unless they are necessary to make the requested change safe.
+- Do not add explanatory comments for straightforward code; comments should document non-obvious behavior, constraints, or operational decisions.
 - Update nearby documentation, CLI help, API definitions, templates, and tests when behavior changes.
 
 ## Shell and Python conventions
