@@ -74,9 +74,14 @@ source setup/preflight.sh
 # Python may not be able to read/write files. This is also
 # in the management daemon startup script and the cron script.
 
-if ! locale -a | grep en_US.utf8 > /dev/null; then
-    # Generate locale if not exists
-    hide_output locale-gen en_US.UTF-8
+if ! dpkg-query -W -f='${db:Status-Status}' locales 2>/dev/null | grep -qx installed; then
+	LC_ALL=C.UTF-8 hide_output apt-get update
+	LC_ALL=C.UTF-8 apt_get_quiet install locales
+fi
+
+if ! LC_ALL=C.UTF-8 locale -a | grep -Fxq en_US.utf8; then
+	hide_output localedef -i en_US -f UTF-8 \
+		-A /usr/share/locale/locale.alias en_US.UTF-8
 fi
 
 export LANGUAGE=en_US.UTF-8
