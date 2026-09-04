@@ -101,6 +101,25 @@ def authorized_personnel_only(viewfunc):
 
 	return newview
 
+# Decorator for account operations available to every authenticated mail user.
+# The local system API key is deliberately excluded because it has no user
+# identity and therefore cannot perform a self-service operation.
+def authenticated_user_only(viewfunc):
+	@wraps(viewfunc)
+	def newview(*args, **kwargs):
+		try:
+			email, privs = auth_service.authenticate(request, env)
+			if email is None:
+				raise ValueError("A mail user account is required.")
+		except ValueError as exc:
+			return json_response({"status": "error", "reason": str(exc)}, status=403)
+
+		request.user_email = email
+		request.user_privs = privs
+		return viewfunc(*args, **kwargs)
+
+	return newview
+
 @app.errorhandler(401)
 def unauthorized(error):
 	return auth_service.make_unauthorized_response()
@@ -224,6 +243,30 @@ def mail_users_password():
 		return set_mail_password(request.form.get('email', ''), request.form.get('password', ''), env)
 	except ValueError as e:
 		return (str(e), 400)
+
+@app.route('/mail/users/me/password', methods=['POST'])
+@authenticated_user_only
+def mail_user_change_own_password():
+	current_password = request.form.get('current_password', '')
+	new_password = request.form.get('new_password', '')
+	confirmation = request.form.get('confirm_password', '')
+	if new_password != confirmation:
+		return ("The new passwords do not match.", 400)
+	try:
+		auth_service.check_user_password(request.user_email, current_password, env)
+	except ValueError as exc:
+		log_failed_login(request)
+		return (str(exc), 400)
+	try:
+		result = set_mail_password(request.user_email, new_password, env)
+	except ValueError as exc:
+		return (str(exc), 400)
+	if isinstance(result, tuple):
+		return result
+	return json_response({
+		"status": "ok",
+		"message": "Password changed. Sign in to Nextcloud again to refresh Mail credentials.",
+	})
 
 @app.route('/mail/users/remove', methods=['POST'])
 @authorized_personnel_only

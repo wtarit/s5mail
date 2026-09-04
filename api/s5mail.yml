@@ -1256,7 +1256,7 @@ paths:
                 $ref: '#/components/schemas/MailUserAddResponse'
               example: |
                 mail user added
-                updated DNS: OpenDKIM configuration
+                updated DNS: Rspamd DKIM signing configuration
         400:
           description: Bad request
           content:
@@ -1444,6 +1444,45 @@ paths:
             text/html:
               schema:
                 type: string
+  /mail/users/me/password:
+    post:
+      tags:
+        - User
+      summary: Change the authenticated user's mail password
+      description: Re-verifies the current password, changes the caller's own password, and invalidates existing S5 management sessions.
+      operationId: changeOwnMailPassword
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MailUserChangeOwnPasswordRequest'
+      responses:
+        200:
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  message:
+                    type: string
+        400:
+          description: Current password invalid or new password rejected
+          content:
+            text/plain:
+              schema:
+                type: string
+        403:
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
   /mail/users/privileges:
     get:
       tags:
@@ -1804,7 +1843,7 @@ components:
       type: string
       example: |
         mail user added
-        updated DNS: OpenDKIM configuration
+        updated DNS: Rspamd DKIM signing configuration
       description: |
         Mail user add response.
 
@@ -2123,6 +2162,25 @@ components:
           type: string
           format: password
       description: Mail user set password request.
+    MailUserChangeOwnPasswordRequest:
+      type: object
+      required:
+        - current_password
+        - new_password
+        - confirm_password
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+        confirm_password:
+          type: string
+          format: password
+          minLength: 8
+      description: Authenticated user password change request.
     MailUserAddRequest:
       type: object
       required:

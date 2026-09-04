@@ -3,7 +3,8 @@ Description=Munin System Monitoring Startup Script
 After=multi-user.target
 
 [Service]
-Type=idle
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/local/lib/s5mail/munin_start.sh
 
 [Install]

@@ -8,7 +8,7 @@
 			<h3>Webmail</h3>
 
 			<p>Webmail lets you check your email from any web browser. Your webmail site is:</p>
-			<p style="margin-left: 2em"><strong><a href="https://{{hostname}}/mail">https://{{hostname}}/mail</a></strong></p>
+			<p style="margin-left: 2em"><strong><a href="https://{{hostname}}/apps/mail/">https://{{hostname}}/apps/mail/</a></strong></p>
 			<p>Your username is your whole email address.</p>
 
 
@@ -38,7 +38,6 @@
 
 					<p>In addition to setting up your email, you&rsquo;ll also need to set up <a href="#sync_guide">contacts and calendar synchronization</a> separately.</p>
 
-					<p>As an alternative to IMAP you can also use the POP protocol: choose POP as the protocol, port 995, and SSL or TLS security in your mail client. The SMTP settings and usernames and passwords remain the same. However, we recommend you use IMAP instead.</p>
 		</div>
 
 		<div class="col-sm-5">
@@ -47,8 +46,8 @@
 			<h3>Other information about mail on your box</h3>
 		</div>
 		<div class="panel-body">
-			<h4>Greylisting</h4>
-			<p>Your box uses a technique called greylisting to cut down on spam. Greylisting works by initially rejecting mail from people you haven&rsquo;t received mail from before. Legitimate mail servers will attempt redelivery shortly afterwards, but the vast majority of spam gets tricked by this. If you are waiting for an email from someone new, such as if you are registering on a new website and are waiting for an email confirmation, please be aware there will be a minimum of 3 minutes delay, depending how soon the remote server attempts redelivery.</p>
+			<h4>Spam filtering and greylisting</h4>
+			<p>Rspamd scores incoming messages using several signals. Messages with a suspicious but inconclusive score may be temporarily greylisted so the sending server must retry; higher-scoring messages are filed into Spam or rejected. A first message from a new sender can therefore arrive a few minutes later than usual.</p>
 
 			<h4>+tag addresses</h4>
 			<p>Every incoming email address also receives mail for <code>+tag</code> addresses. If your email address is <code>you@yourdomain.com</code>, you&rsquo;ll also automatically get mail sent to <code>you+anythinghere@yourdomain.com</code>. Use this as a fast way to segment incoming mail for your own filtering rules without having to create aliases in this control panel.</p>

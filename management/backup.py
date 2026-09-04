@@ -7,7 +7,7 @@
 # 4) The stopped services are restarted.
 # 5) STORAGE_ROOT/backup/after-backup is executed if it exists.
 
-import os, os.path, re, datetime, sys
+import os, os.path, re, datetime, sys, time
 import dateutil.parser, dateutil.relativedelta, dateutil.tz
 from datetime import date
 import rtyaml
@@ -17,6 +17,7 @@ from utils import load_environment, shell, wait_for_service
 import operator
 
 DUPLICITY_BIN = "/usr/local/lib/s5mail/duplicity-env/bin/duplicity"
+PHP_FPM_SERVICE = "php8.4-fpm"
 
 
 def backup_status(env):
@@ -79,7 +80,7 @@ def backup_status(env):
 			backups[backup["date"]] = backup
 
 	# Look at the target directly to get the sizes of each of the backups. There is more than one file per backup.
-	# Starting with duplicity in Ubuntu 18.04, "signatures" files have dates in their
+	# Some current duplicity releases write "signatures" files with dates in their
 	# filenames that are a few seconds off the backup date and so don't line up
 	# with the list of backups we have. Track unmatched files so we know how much other
 	# space is used for those.
@@ -305,25 +306,67 @@ def perform_backup(full_backup):
 			if quit:
 				sys.exit(code)
 
-	service_command("php8.2-fpm", "stop", quit=True)
-	service_command("postfix", "stop", quit=True)
-	service_command("dovecot", "stop", quit=True)
-	if env.get("ENABLE_POSTGREY", "1") == "1":
-		service_command("postgrey", "stop", quit=True)
+	def service_installed(service):
+		return any(os.path.exists(path) for path in (
+			f"/etc/init.d/{service}",
+			f"/lib/systemd/system/{service}.service",
+			f"/usr/lib/systemd/system/{service}.service",
+		))
 
-	# Execute a pre-backup script that copies files outside the homedir.
-	# Run as the STORAGE_USER user, not as root. Pass our settings in
-	# environment variables so the script has access to STORAGE_ROOT.
-	pre_script = os.path.join(backup_root, 'before-backup')
-	if os.path.exists(pre_script):
-		shell('check_call',
-			['su', env['STORAGE_USER'], '-c', pre_script, config["target"]],
-			env=env)
+	managed_services = [PHP_FPM_SERVICE, "cron", "s5mail", "postfix", "dovecot", "rspamd", "valkey-server"]
+	active_services = []
+	for service in managed_services:
+		if not service_installed(service):
+			continue
+		code, _ = shell('check_output', ["/bin/systemctl", "is-active", "--quiet", service], trap=True)
+		if code == 0:
+			active_services.append(service)
 
-	# Run a backup of STORAGE_ROOT (but excluding the backups themselves!).
-	# --allow-source-mismatch is needed in case the box's hostname is changed
-	# after the first backup. See #396.
+	# From this point onward every successfully stopped service is restored to
+	# its prior state, even if checkpointing or duplicity fails.
+	stopped_services = []
 	try:
+		for service in active_services:
+			if service == "valkey-server":
+				# Persist current Bayes/greylisting state before Valkey exits.
+				code, ret = shell('check_output', ["/usr/bin/valkey-cli", "-h", "127.0.0.1", "save"], capture_stderr=True, trap=True)
+				if code != 0:
+					print(ret)
+					sys.exit(code)
+			service_command(service, "stop", quit=True)
+			stopped_services.append(service)
+
+		# Cron may already have launched an occ/cron.php writer. Wait until those
+		# processes drain before checkpointing the SQLite databases.
+		deadline = time.monotonic() + 300
+		while True:
+			code, ret = shell('check_output', ["/usr/bin/pgrep", "-af", r"/usr/local/lib/owncloud/(cron\.php|occ)"], capture_stderr=True, trap=True)
+			if code != 0:
+				break
+			if time.monotonic() >= deadline:
+				print("Timed out waiting for Nextcloud jobs to finish:\n" + ret)
+				sys.exit(1)
+			time.sleep(1)
+
+		for database in (
+			os.path.join(env["STORAGE_ROOT"], "mail", "users.sqlite"),
+			os.path.join(env["STORAGE_ROOT"], "owncloud", "owncloud.db"),
+		):
+			if not os.path.exists(database):
+				continue
+			code, ret = shell('check_output', ["/usr/bin/sqlite3", database, "PRAGMA wal_checkpoint(TRUNCATE); PRAGMA integrity_check;"], capture_stderr=True, trap=True)
+			if code != 0 or ret.strip().splitlines()[-1:] != ["ok"]:
+				print(f"SQLite checkpoint/integrity check failed for {database}:\n{ret}")
+				sys.exit(code or 1)
+
+		# Execute a pre-backup script that copies files outside the homedir.
+		pre_script = os.path.join(backup_root, 'before-backup')
+		if os.path.exists(pre_script):
+			shell('check_call',
+				['su', env['STORAGE_USER'], '-c', pre_script, config["target"]],
+				env=env)
+
+		# Run a backup of STORAGE_ROOT (but excluding the backups themselves!).
 		shell('check_call', [
 			DUPLICITY_BIN,
 			"full" if full_backup else "incr",
@@ -340,12 +383,10 @@ def perform_backup(full_backup):
 			],
 			get_duplicity_env_vars(env))
 	finally:
-		# Start services again.
-		if env.get("ENABLE_POSTGREY", "1") == "1":
-			service_command("postgrey", "start", quit=False)
-		service_command("dovecot", "start", quit=False)
-		service_command("postfix", "start", quit=False)
-		service_command("php8.2-fpm", "start", quit=False)
+		# Restore only services that were active before this backup, in reverse
+		# stop order so dependencies such as Valkey precede Rspamd.
+		for service in reversed(stopped_services):
+			service_command(service, "start", quit=False)
 
 	# Remove old backups. This deletes all backup data no longer needed
 	# from more than 3 days ago.
@@ -395,8 +436,10 @@ def perform_backup(full_backup):
 	# backup. Since it checks that dovecot and postfix are running, block for a
 	# bit (maximum of 10 seconds each) to give each a chance to finish restarting
 	# before the status checks might catch them down. See #381.
-	wait_for_service(25, True, env, 10)
-	wait_for_service(993, True, env, 10)
+	if "postfix" in active_services:
+		wait_for_service(25, True, env, 10)
+	if "dovecot" in active_services:
+		wait_for_service(993, True, env, 10)
 
 def run_duplicity_verification():
 	env = load_environment()

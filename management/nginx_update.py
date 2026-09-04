@@ -121,6 +121,10 @@ def make_domain_config(domain, templates, ssl_certificates, env):
 	# Replace substitution strings in the template and return.
 	nginx_conf = nginx_conf.replace("$STORAGE_ROOT", env['STORAGE_ROOT'])
 	nginx_conf = nginx_conf.replace("$HOSTNAME", domain)
+	nginx_conf = nginx_conf.replace(
+		"$WEB_ROOT",
+		"/usr/local/lib/owncloud" if domain == env['PRIMARY_HOSTNAME'] else "/tmp/invalid-path-nothing-here",
+	)
 	nginx_conf = nginx_conf.replace("$SSL_KEY", tls_cert["private-key"])
 	nginx_conf = nginx_conf.replace("$SSL_CERTIFICATE", tls_cert["certificate"])
 	return nginx_conf

@@ -8,16 +8,15 @@
 #
 # Postfix listens on port 25 (SMTP) for incoming mail from
 # other servers on the Internet. It is responsible for very
-# basic email filtering such as by IP address and greylisting,
+# basic email filtering such as by IP address,
 # it checks that the destination address is valid, rewrites
-# destinations according to aliases, and passses email on to
+# destinations according to aliases, and passes email on to
 # another service for local mail delivery.
 #
-# The first hop in local mail delivery is to spampd via
-# LMTP. spampd then passes mail over to Dovecot for
-# storage in the user's mailbox.
+# Incoming mail is delivered to Dovecot over LMTP. Rspamd filters mail
+# through Postfix's loopback-only milter before delivery.
 #
-# Postfix also listens on ports 465/587 (SMTPS, SMTP+STARTLS) for
+# Postfix also listens on ports 465/587 (SMTPS, SMTP+STARTTLS) for
 # connections from users who can authenticate and then sends
 # their email out to the outside world. Postfix queries Dovecot
 # to authenticate users.
@@ -36,16 +35,10 @@ source /etc/s5mail.conf # load global vars
 #
 # * `postfix`: The SMTP server.
 # * `postfix-pcre`: Enables header filtering.
-# * `postgrey`: A mail policy service that soft-rejects mail the first time
-#   it is received. Spammers don't usually try again. Legitimate mail
-#   always will.
 # * `ca-certificates`: A trust store used to squelch postfix warnings about
 #   untrusted opportunistically-encrypted connections.
 echo "Installing Postfix (SMTP server)..."
 postfix_packages=(postfix postfix-sqlite postfix-pcre ca-certificates libsasl2-modules)
-if [ "$ENABLE_POSTGREY" = "1" ]; then
-	postfix_packages+=(postgrey)
-fi
 apt_install "${postfix_packages[@]}"
 
 # ### Basic Settings
@@ -62,7 +55,7 @@ tools/editconf.py /etc/postfix/main.cf \
 	smtp_bind_address="$PRIVATE_IP" \
 	smtp_bind_address6="$PRIVATE_IPV6" \
 	myhostname="$PRIMARY_HOSTNAME"\
-	smtpd_banner="\$myhostname ESMTP S5 Mail (Ubuntu/Postfix)" \
+	smtpd_banner="\$myhostname ESMTP S5 Mail (Postfix)" \
 	mydestination=localhost
 
 # Tweak some queue settings:
@@ -75,8 +68,7 @@ tools/editconf.py /etc/postfix/main.cf \
 
 # Guard against SMTP smuggling
 # This "long-term" fix is recommended at https://www.postfix.org/smtp-smuggling.html.
-# This beecame supported in a backported fix in package version 3.6.4-1ubuntu1.3. It is
-# unnecessary in Postfix 3.9+ where this is the default. The "short-term" workarounds
+# This is the default in Debian 13's Postfix 3.10. The "short-term" workarounds
 # that we previously had are reverted to postfix defaults (though smtpd_discard_ehlo_keywords
 # was never included in a released version of S5 Mail).
 tools/editconf.py /etc/postfix/main.cf -e \
@@ -91,9 +83,8 @@ tools/editconf.py /etc/postfix/main.cf \
 #
 # * Enable authentication. It's disabled globally so that it is disabled on port 25,
 #   so we need to explicitly enable it here.
-# * Do not add the OpenDMAC Authentication-Results header. That should only be added
-#   on incoming mail. Omit the OpenDMARC milter by re-setting smtpd_milters to the
-#   OpenDKIM milter only. See dkim.sh.
+# * Send authenticated submissions through the same Rspamd milter so they are
+#   DKIM-signed, while Rspamd recognizes the authenticated sender.
 # * Even though we dont allow auth over non-TLS connections (smtpd_tls_auth_only below, and without auth the client cant
 #   send outbound mail), don't allow non-TLS mail submission on this port anyway to prevent accidental misconfiguration.
 #   Setting smtpd_tls_security_level=encrypt also triggers the use of the 'mandatory' settings below (but this is ignored with smtpd_tls_wrappermode=yes.)
@@ -107,12 +98,12 @@ tools/editconf.py /etc/postfix/master.cf -s -w \
 	  -o smtpd_tls_wrappermode=yes
 	  -o smtpd_sasl_auth_enable=yes
 	  -o syslog_name=postfix/submission
-	  -o smtpd_milters=inet:127.0.0.1:8891
+	  -o smtpd_milters=inet:127.0.0.1:11332
 	  -o cleanup_service_name=authclean" \
 	"submission=inet n       -       -       -       -       smtpd
 	  -o smtpd_sasl_auth_enable=yes
 	  -o syslog_name=postfix/submission
-	  -o smtpd_milters=inet:127.0.0.1:8891
+	  -o smtpd_milters=inet:127.0.0.1:11332
 	  -o smtpd_tls_security_level=encrypt
 	  -o cleanup_service_name=authclean" \
 	"authclean=unix  n       -       -       -       0       cleanup
@@ -139,12 +130,12 @@ sed -i "s/PUBLIC_IP/$PUBLIC_IP/" /etc/postfix/outgoing_mail_header_filters
 #   won't fall back to cleartext. So we don't disable too much. smtpd_tls_exclude_ciphers applies to
 #   both port 25 and port 587, but because we override the cipher list for both, it probably isn't used.
 #   Use Mozilla's "Old" recommendations at https://ssl-config.mozilla.org/#server=postfix&server-version=3.3.0&config=old&openssl-version=1.1.1
-tools/editconf.py /etc/postfix/main.cf \
+tools/editconf.py /etc/postfix/main.cf -e \
 	smtpd_tls_security_level=may\
 	smtpd_tls_auth_only=yes \
 	smtpd_tls_cert_file="$STORAGE_ROOT/ssl/ssl_certificate.pem" \
 	smtpd_tls_key_file="$STORAGE_ROOT/ssl/ssl_private_key.pem" \
-	smtpd_tls_dh1024_param_file="$STORAGE_ROOT/ssl/dh2048.pem" \
+	smtpd_tls_dh1024_param_file= \
 	smtpd_tls_protocols="!SSLv2,!SSLv3" \
 	smtpd_tls_ciphers=medium \
 	tls_medium_cipherlist=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA256:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA \
@@ -261,16 +252,9 @@ unset SMTP_RELAY_PASSWORD
 
 # ### Incoming Mail
 
-# Pass mail to spampd, which acts as the local delivery agent (LDA),
-# which then passes the mail over to the Dovecot LMTP server after.
-# spampd runs on port 10025 by default.
-#
-# In a basic setup we would pass mail directly to Dovecot by setting
-# virtual_transport to `lmtp:unix:private/dovecot-lmtp`.
-tools/editconf.py /etc/postfix/main.cf "virtual_transport=lmtp:[127.0.0.1]:10025"
-# Clear the lmtp_destination_recipient_limit setting which in previous
-# previous releases was set to 1 because of a spampd bug.
-# See https://github.com/mail-in-a-box/mailinabox/issues/1523.
+# Rspamd is a Postfix milter, so it does not sit in the LMTP delivery path.
+# Deliver directly to Dovecot's loopback-only LMTP listener.
+tools/editconf.py /etc/postfix/main.cf "virtual_transport=lmtp:[127.0.0.1]:10026"
 tools/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit=
 
 
@@ -284,7 +268,7 @@ tools/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit=
 # * `permit_mynetworks`: Mail that originates locally can skip further checks.
 # * `reject_rbl_client`: Reject connections from IP addresses blacklisted in zen.spamhaus.org
 # * `reject_unlisted_recipient`: Although Postfix will reject mail to unknown recipients, it's nicer to reject such mail ahead of greylisting rather than after.
-# * `check_policy_service`: Apply greylisting using Postgrey when enabled.
+# * `check_policy_service`: Enforce the Dovecot quota status policy.
 #
 # Note the spamhaus rbl return codes are taken into account as advised here: https://docs.spamhaus.com/datasets/docs/source/40-real-world-usage/PublicMirrors/MTAs/020-Postfix.html
 # Notes: #NODOC
@@ -292,80 +276,21 @@ tools/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit=
 # so these IPs get mail delivered quickly. But when an IP is not listed in the permit_dnswl_client list (i.e. it is not #NODOC
 # whitelisted) then postfix does a DEFER_IF_REJECT, which results in all "unknown user" sorts of messages turning into #NODOC
 # "450 4.7.1 Client host rejected: Service unavailable". This is a retry code, so the mail doesn't properly bounce. #NODOC
-postgrey_policy=""
-if [ "$ENABLE_POSTGREY" = "1" ]; then
-	postgrey_policy=",check_policy_service inet:127.0.0.1:10023"
-fi
 tools/editconf.py /etc/postfix/main.cf \
 	smtpd_sender_restrictions="reject_non_fqdn_sender,reject_unknown_sender_domain,reject_authenticated_sender_login_mismatch,reject_rhsbl_sender dbl.spamhaus.org=127.0.1.[2..99]" \
-	smtpd_recipient_restrictions="permit_sasl_authenticated,permit_mynetworks,reject_rbl_client zen.spamhaus.org=127.0.0.[2..11],reject_unlisted_recipient${postgrey_policy},check_policy_service inet:127.0.0.1:12340"
+	smtpd_recipient_restrictions="permit_sasl_authenticated,permit_mynetworks,reject_rbl_client zen.spamhaus.org=127.0.0.[2..11],reject_unlisted_recipient,check_policy_service inet:127.0.0.1:12340"
 
-if [ "$ENABLE_POSTGREY" = "1" ]; then
-# Postfix connects to Postgrey on the 127.0.0.1 interface specifically. Ensure that
-# Postgrey listens on the same interface (and not IPv6, for instance).
-# A lot of legit mail servers try to resend before 300 seconds.
-# As a matter of fact RFC is not strict about retry timer so postfix and
-# other MTA have their own intervals. To fix the problem of receiving
-# e-mails really latter, delay of greylisting has been set to
-# 180 seconds (default is 300 seconds). We will move the postgrey database
-# under $STORAGE_ROOT. This prevents a "warming up" that would have occurred
-# previously with a migrated or reinstalled OS.  We will specify this new path
-# with the --dbdir=... option. Arguments within POSTGREY_OPTS can not have spaces,
-# including dbdir. This is due to the way the init script sources the
-# /etc/default/postgrey file. --dbdir=... either needs to be a path without spaces
-# (luckily $STORAGE_ROOT does not currently work with spaces), or it needs to be a
-# symlink without spaces that can point to a folder with spaces).  We'll just assume
-# $STORAGE_ROOT won't have spaces to simplify things.
-tools/editconf.py /etc/default/postgrey \
-	POSTGREY_OPTS=\""--inet=127.0.0.1:10023 --delay=180 --dbdir=$STORAGE_ROOT/mail/postgrey/db"\"
-
-
-# If the $STORAGE_ROOT/mail/postgrey is empty, copy the postgrey database over from the old location
-if [ ! -d "$STORAGE_ROOT/mail/postgrey/db" ]; then
-	# Stop the service
-	service postgrey stop
-	# Ensure the new paths for postgrey db exists
-	mkdir -p "$STORAGE_ROOT/mail/postgrey/db"
-	# Move over database files
-	mv /var/lib/postgrey/* "$STORAGE_ROOT/mail/postgrey/db/" || true
-fi
-# Ensure permissions are set
-chown -R postgrey:postgrey "$STORAGE_ROOT/mail/postgrey/"
-chmod 700 "$STORAGE_ROOT/mail/postgrey/"{,db}
-
-# We are going to setup a newer whitelist for postgrey, the version included in the distribution is old
-rm -f /etc/cron.daily/mailinabox-postgrey-whitelist
-cat > /etc/cron.daily/s5mail-postgrey-whitelist << EOF;
-#!/bin/bash
-
-# S5 Mail
-
-# check we have a postgrey_whitelist_clients file and that it is not older than 28 days
-if [ ! -f /etc/postgrey/whitelist_clients ] || find /etc/postgrey/whitelist_clients -mtime +28 | grep -q '.' ; then
-    # ok we need to update the file, so lets try to fetch it
-    if curl https://postgrey.schweikert.ch/pub/postgrey_whitelist_clients --output /tmp/postgrey_whitelist_clients -sS --fail > /dev/null 2>&1 ; then
-        # if fetching hasn't failed yet then check it is a plain text file
-        # curl manual states that --fail sometimes still produces output
-        # this final check will at least check the output is not html
-        # before moving it into place
-        if [ "\$(file -b --mime-type /tmp/postgrey_whitelist_clients)" == "text/plain" ]; then
-            mv /tmp/postgrey_whitelist_clients /etc/postgrey/whitelist_clients
-            service postgrey restart
-	else
-            rm /tmp/postgrey_whitelist_clients
-        fi
-    fi
-fi
-EOF
-chmod +x /etc/cron.daily/s5mail-postgrey-whitelist
-/etc/cron.daily/s5mail-postgrey-whitelist
-else
-	echo "Disabling Postgrey..."
-	rm -f /etc/cron.daily/mailinabox-postgrey-whitelist
-	rm -f /etc/cron.daily/s5mail-postgrey-whitelist
-	systemctl disable --now postgrey >/dev/null 2>&1 || true
-	apt_get_quiet purge postgrey
-fi
+# Rspamd performs score-aware greylisting in its loopback-only milter.
+# The quota-status policy remains in the recipient restrictions above.
+tools/editconf.py /etc/postfix/main.cf \
+	"smtpd_milters=inet:127.0.0.1:11332" \
+	"non_smtpd_milters=\$smtpd_milters" \
+	milter_protocol=6 \
+	milter_default_action=accept \
+	milter_connect_macros="i j {daemon_name} {daemon_addr} v" \
+	milter_helo_macros="i j {daemon_name} {daemon_addr} v _" \
+	milter_mail_macros="i j {daemon_name} {daemon_addr} v _ {auth_authen} {auth_author} {auth_type}" \
+	milter_rcpt_macros="i j {daemon_name} {daemon_addr} v _ {auth_authen} {auth_author} {auth_type}"
 
 # Increase the message size limit from 10MB to 128MB.
 # The same limit is specified in nginx.conf for mail submitted via webmail.
@@ -384,6 +309,3 @@ if [ "$ENABLE_SMTP_RELAY" = "1" ]; then
 	hide_output postfix check
 fi
 restart_service postfix
-if [ "$ENABLE_POSTGREY" = "1" ]; then
-	restart_service postgrey
-fi

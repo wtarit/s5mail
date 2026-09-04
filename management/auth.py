@@ -99,7 +99,20 @@ class AuthService:
 		# On login failure, raises a ValueError with a login error message. On
 		# success, nothing is returned.
 
-		# Authenticate.
+		self.check_user_password(email, pw, env)
+
+		# If MFA is enabled, check that MFA passes.
+		status, hints = validate_auth_mfa(email, request, env)
+		if not status:
+			# Login valid. Hints may have more info.
+			raise ValueError(",".join(hints))
+
+	def check_user_password(self, email, pw, env):
+		"""Validate only the account password, without applying management MFA.
+
+		This is used for an already-authenticated user's password-change recheck.
+		It must not be used to create a management session on its own.
+		"""
 		try:
 			# Get the hashed password of the user. Raise a ValueError if the
 			# email address does not correspond to a user. But wrap it in the
@@ -119,12 +132,6 @@ class AuthService:
 			# Login failed.
 			msg = "Incorrect email address or password."
 			raise ValueError(msg)
-
-		# If MFA is enabled, check that MFA passes.
-		status, hints = validate_auth_mfa(email, request, env)
-		if not status:
-			# Login valid. Hints may have more info.
-			raise ValueError(",".join(hints))
 
 	def create_user_password_state_token(self, email, env):
 		# Create a token that changes if the user's password or MFA options change

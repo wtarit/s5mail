@@ -15,14 +15,6 @@
          <authentication>password-cleartext</authentication>
       </incomingServer>
 
-      <incomingServer type="pop3">
-         <hostname>PRIMARY_HOSTNAME</hostname>
-         <port>995</port>
-         <socketType>SSL</socketType>
-         <username>%EMAILADDRESS%</username>
-         <authentication>password-cleartext</authentication>
-      </incomingServer>
-
       <outgoingServer type="smtp">
          <hostname>PRIMARY_HOSTNAME</hostname>
          <port>465</port>
@@ -41,25 +33,19 @@
     <addressbook type="carddav">
       <username>%EMAILADDRESS%</username>
       <authentication system="http">basic</authentication>
-      <!-- Redirects to: https://PRIMARY_HOSTNAME/cloud/remote.php/carddav/ -->
+      <!-- Redirects to: https://PRIMARY_HOSTNAME/remote.php/dav/ -->
       <url>https://PRIMARY_HOSTNAME/.well-known/carddav</url>
     </addressbook>
 
     <calendar type="caldav">
       <username>%EMAILADDRESS%</username>
       <authentication system="http">basic</authentication>
-      <!-- Redirects to: https://PRIMARY_HOSTNAME/cloud/remote.php/caldav/ -->
+      <!-- Redirects to: https://PRIMARY_HOSTNAME/remote.php/dav/ -->
       <url>https://PRIMARY_HOSTNAME/.well-known/caldav</url>
     </calendar>
 
     <webMail>
-      <loginPage url="https://PRIMARY_HOSTNAME/mail/" />
-      <loginPageInfo url="https://PRIMARY_HOSTNAME/mail/" >
-        <username>%EMAILADDRESS%</username>
-        <usernameField id="rcmloginuser" name="_user" />
-        <passwordField id="rcmloginpwd" name="_pass" />
-        <loginButton id="rcmloginsubmit" />
-      </loginPageInfo>
+      <loginPage url="https://PRIMARY_HOSTNAME/apps/mail/" />
     </webMail>
 
     <clientConfigUpdate url="https://PRIMARY_HOSTNAME/.well-known/autoconfig/mail/config-v1.1.xml" />

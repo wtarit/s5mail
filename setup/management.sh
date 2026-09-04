@@ -54,7 +54,7 @@ bootstrap_version=3.4.1
 bootstrap_url=https://github.com/twbs/bootstrap/releases/download/v$bootstrap_version/bootstrap-$bootstrap_version-dist.zip
 
 # Get Bootstrap
-wget_verify $bootstrap_url 0bb64c67c2552014d48ab4db81c2e8c01781f580 /tmp/bootstrap.zip
+wget_verify "$bootstrap_url" d49793cf773cbd393ac2cf340c3b4ddab5365fa7c292098ac07e12eab3efd92e /tmp/bootstrap.zip
 unzip -q /tmp/bootstrap.zip \
 	"bootstrap-$bootstrap_version-dist/css/*" \
 	"bootstrap-$bootstrap_version-dist/fonts/*" \
@@ -76,7 +76,7 @@ cat > $inst_dir/start <<EOF;
 export LANGUAGE=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
-export LC_TYPE=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
 
 mkdir -p /var/lib/s5mail
 tr -cd '[:xdigit:]' < /dev/urandom | head -c 32 > /var/lib/s5mail/api.key
@@ -90,8 +90,13 @@ if [ -e /lib/systemd/system/mailinabox.service ] || [ -L /lib/systemd/system/mai
 	systemctl disable --now mailinabox.service >/dev/null 2>&1 || true
 	rm -f /lib/systemd/system/mailinabox.service
 fi
-cp --remove-destination conf/s5mail.service /lib/systemd/system/s5mail.service # target may be a symlink, so remove it first
-hide_output systemctl link -f /lib/systemd/system/s5mail.service
+# Appliance-managed units belong in /etc. A unit copied to Debian's vendor
+# directory and then linked into /etc is classified as a linked unit, which
+# systemctl refuses to enable. Remove that legacy layout and install a regular
+# local unit instead.
+rm -f /lib/systemd/system/s5mail.service
+cp --remove-destination conf/s5mail.service /etc/systemd/system/s5mail.service
+chmod 0644 /etc/systemd/system/s5mail.service
 hide_output systemctl daemon-reload
 hide_output systemctl enable s5mail.service
 

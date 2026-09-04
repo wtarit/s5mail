@@ -6,23 +6,24 @@
 #
 #########################################################
 
+if [ -r /etc/os-release ]; then
+	. /etc/os-release
+fi
+if [ "${ID:-}" != "debian" ] || [ "${VERSION_ID:-}" != "13" ]; then
+	echo "This S5 Mail release may be used only on Debian 13."
+	exit 1
+fi
+
 if [ -z "$TAG" ]; then
 	# If a version to install isn't explicitly given as an environment
-	# variable, install the final S5 Mail release for Ubuntu 22.04.
+	# variable, install the current S5 Mail Debian 13 release.
 	#
 	# Also, the system status checks read this script for TAG = (without the
 	# space, but if we put it in a comment it would confuse the status checks!)
 	# to get the latest version, so the first such line must be the one that we
 	# want to display in status checks.
 	#
-	# Allow point-release versions, e.g. 22.04.1 is OK.
-	UBUNTU_VERSION=$( lsb_release -d | sed 's/.*:\s*//' | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]/\1/' )
-	if [ "$UBUNTU_VERSION" == "Ubuntu 22.04 LTS" ]; then
-		TAG=v2026.08.2
-	else
-		echo "This S5 Mail release may be used only on Ubuntu 22.04 LTS."
-		exit 1
-	fi
+	TAG=v2026.08.2
 fi
 
 # Are we running as root?

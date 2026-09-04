@@ -1,5 +1,5 @@
 # Remove the first line of the Received: header. Note that we cannot fully remove the Received: header
-# because OpenDKIM requires that a header be present when signing outbound mail. The first line is
+# because DKIM signing requires that a header be present on outbound mail. The first line is
 # where the user's home IP address would be.
 /^\s*Received:[^\n]*(.*)/         REPLACE Received: from authenticated-user (PRIMARY_HOSTNAME [PUBLIC_IP])$1
 

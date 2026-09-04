@@ -5,7 +5,9 @@
 # -o pipefail: don't ignore errors in the non-last command in a pipeline
 set -euo pipefail
 
-PHP_VER=8.2
+# Debian 13 supplies the supported PHP runtime from its signed main archive.
+# Keep the version in one place for shell provisioning scripts.
+PHP_VER=8.4
 
 function hide_output {
 	# This function hides the output of a command unless the command fails
@@ -216,22 +218,20 @@ function checklist_box {
 
 function wget_verify {
 	# Downloads a file from the web and checks that it matches
-	# a provided hash. If the comparison fails, exit immediately.
-	URL=$1
-	HASH=$2
-	DEST=$3
-	CHECKSUM="$HASH  $DEST"
-	rm -f "$DEST"
-	hide_output wget -O "$DEST" "$URL"
-	if ! echo "$CHECKSUM" | sha1sum --check --strict > /dev/null; then
+	# a pinned SHA-256 hash. If the comparison fails, exit immediately.
+	local url=$1 hash=$2 destination=$3 checksum
+	checksum="$hash  $destination"
+	rm -f "$destination"
+	hide_output wget -O "$destination" "$url"
+	if ! echo "$checksum" | sha256sum --check --strict > /dev/null; then
 		echo "------------------------------------------------------------"
-		echo "Download of $URL did not match expected checksum."
+		echo "Download of $url did not match expected checksum."
 		echo "Found:"
-		sha1sum "$DEST"
+		sha256sum "$destination"
 		echo
 		echo "Expected:"
-		echo "$CHECKSUM"
-		rm -f "$DEST"
+		echo "$checksum"
+		rm -f "$destination"
 		exit 1
 	fi
 }

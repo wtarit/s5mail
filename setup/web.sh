@@ -5,7 +5,7 @@
 source setup/functions.sh # load our functions
 source /etc/s5mail.conf # load global vars
 
-# Some Ubuntu images start off with Apache. Remove it since we
+# Some cloud images start off with Apache. Remove it since we
 # will use nginx. Use autoremove to remove any Apache dependencies.
 if [ -f /usr/sbin/apache2 ]; then
 	echo "Removing apache..."
@@ -23,8 +23,7 @@ apt_install nginx php"${PHP_VER}"-cli php"${PHP_VER}"-fpm idn2
 
 rm -f /etc/nginx/sites-enabled/default
 
-# Ubuntu 22.04's nginx MIME map predates JavaScript modules. Nextcloud serves
-# .mjs assets and requires browsers to receive them as JavaScript.
+# Ensure Nextcloud's .mjs assets are served as JavaScript on minimal images.
 sed -i 's#application/javascript[[:space:]]*js;#application/javascript js mjs;#' /etc/nginx/mime.types
 
 # Copy in a nginx configuration file for common and best-practices
@@ -66,37 +65,33 @@ tools/editconf.py /etc/php/"$PHP_VER"/fpm/pool.d/www.conf -c ';' \
 # Some synchronisation issues can occur when many people access the site at once.
 # The pm=ondemand setting is used for memory constrained machines < 2GB, this is copied over from PR: 1216
 TOTAL_PHYSICAL_MEM=$(head -n 1 /proc/meminfo | awk '{print $2}' || /bin/true)
-if [ "$TOTAL_PHYSICAL_MEM" -lt 1000000 ]
+if [ "$TOTAL_PHYSICAL_MEM" -lt 1500000 ]
 then
         tools/editconf.py /etc/php/"$PHP_VER"/fpm/pool.d/www.conf -c ';' \
                 pm=ondemand \
-                pm.max_children=8 \
-                pm.start_servers=2 \
-                pm.min_spare_servers=1 \
-                pm.max_spare_servers=3
-elif [ "$TOTAL_PHYSICAL_MEM" -lt 2000000 ]
+                pm.max_children=2 \
+                pm.process_idle_timeout=10s
+elif [ "$TOTAL_PHYSICAL_MEM" -lt 2500000 ]
 then
         tools/editconf.py /etc/php/"$PHP_VER"/fpm/pool.d/www.conf -c ';' \
                 pm=ondemand \
-                pm.max_children=16 \
-                pm.start_servers=4 \
-                pm.min_spare_servers=1 \
-                pm.max_spare_servers=6
-elif [ "$TOTAL_PHYSICAL_MEM" -lt 3000000 ]
+                pm.max_children=4 \
+                pm.process_idle_timeout=10s
+elif [ "$TOTAL_PHYSICAL_MEM" -lt 4000000 ]
 then
         tools/editconf.py /etc/php/"$PHP_VER"/fpm/pool.d/www.conf -c ';' \
                 pm=dynamic \
-                pm.max_children=60 \
-                pm.start_servers=6 \
-                pm.min_spare_servers=3 \
-                pm.max_spare_servers=9
+                pm.max_children=12 \
+                pm.start_servers=2 \
+                pm.min_spare_servers=1 \
+                pm.max_spare_servers=4
 else
         tools/editconf.py /etc/php/"$PHP_VER"/fpm/pool.d/www.conf -c ';' \
                 pm=dynamic \
-                pm.max_children=120 \
-                pm.start_servers=12 \
-                pm.min_spare_servers=6 \
-                pm.max_spare_servers=18
+                pm.max_children=24 \
+                pm.start_servers=4 \
+                pm.min_spare_servers=2 \
+                pm.max_spare_servers=8
 fi
 
 # Other nginx settings will be configured by the management service

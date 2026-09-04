@@ -28,13 +28,9 @@ def get_services(env):
 		#{ "name": "NSD Control", "port": 8952, "public": False, },
 		{ "name": "Local DNS Control (bind9/rndc)", "port": 953, "public": False, },
 		{ "name": "Dovecot LMTP LDA", "port": 10026, "public": False, },
-	]
-	if env.get("ENABLE_POSTGREY", "1") == "1":
-		services.append({ "name": "Postgrey", "port": 10023, "public": False, })
-	services += [
-		{ "name": "Spamassassin", "port": 10025, "public": False, },
-		{ "name": "OpenDKIM", "port": 8891, "public": False, },
-		{ "name": "OpenDMARC", "port": 8893, "public": False, },
+		{ "name": "Rspamd Milter", "port": 11332, "public": False, },
+		{ "name": "Rspamd Controller", "port": 11334, "public": False, },
+		{ "name": "Valkey", "port": 6379, "public": False, },
 		{ "name": "S5 Mail Management Daemon", "port": 10222, "public": False, },
 		{ "name": "SSH Login (ssh)", "port": get_ssh_port(), "public": True, },
 		{ "name": "Public DNS (nsd4)", "port": 53, "public": True, },

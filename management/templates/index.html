@@ -135,6 +135,7 @@
               </ul>
             </li>
             <li><a href="#sync_guide" class="if-logged-in">Contacts/Calendar</a></li>
+            <li><a href="#account-password" class="if-logged-in">Password</a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <li class="if-logged-in"><a href="#" data-session-action="logout" style="color: white">Log out</a></li>
@@ -186,6 +187,10 @@
 
       <div id="panel_sync_guide" class="admin_panel">
       {% include "sync-guide.html" %}
+      </div>
+
+      <div id="panel_account-password" class="admin_panel">
+      {% include "account-password.html" %}
       </div>
 
       <div id="panel_tls" class="admin_panel">

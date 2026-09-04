@@ -16,7 +16,7 @@ if [ -z "${NONINTERACTIVE:-}" ]; then
 		"Hello and thanks for deploying S5 Mail!
 		\n\nI'm going to ask you a few questions.
 		\n\nTo change your answers later, just run 'sudo s5mail' from the command line.
-		\n\nNOTE: You should only install this on a brand new Ubuntu installation 100% dedicated to S5 Mail. S5 Mail will, for example, remove apache2."
+		\n\nNOTE: You should only install this on a brand new Debian 13 installation 100% dedicated to S5 Mail. S5 Mail will, for example, remove apache2."
 fi
 
 # The box needs a name.
@@ -76,34 +76,6 @@ address, so we're suggesting $DEFAULT_PRIMARY_HOSTNAME.
 		# user hit ESC/cancel
 		exit
 	fi
-fi
-
-# Ask which optional services to install. Explicit command-line options and
-# environment settings skip this question, which keeps automated setup runs
-# deterministic. Add more tag/item/state triplets here as services become
-# optional, and handle their selected tags below.
-if [ -z "${NONINTERACTIVE:-}" ] && [ "$POSTGREY_OPTION_SET" = "0" ]; then
-	if [ "$ENABLE_POSTGREY" = "1" ]; then
-		POSTGREY_CHECKED=on
-	else
-		POSTGREY_CHECKED=off
-	fi
-
-	checklist_box "Optional Services" \
-		"Select the optional services to install. Use SPACE to toggle a service and ENTER to continue." \
-		OPTIONAL_SERVICES \
-		postgrey "Postgrey greylisting (temporarily defers mail from new senders)" "$POSTGREY_CHECKED"
-
-	if [ "$OPTIONAL_SERVICES_EXITCODE" != "0" ]; then
-		exit
-	fi
-
-	ENABLE_POSTGREY=0
-	while IFS= read -r service; do
-		case "$service" in
-			postgrey) ENABLE_POSTGREY=1 ;;
-		esac
-	done <<< "$OPTIONAL_SERVICES"
 fi
 
 # Choose how Postfix delivers outbound mail. SMTP relay configuration is kept

@@ -8,12 +8,18 @@ if [[ $EUID -ne 0 ]]; then
 	exit 1
 fi
 
-# Check that we are running on Ubuntu 22.04 LTS (or 22.04.xx).
-# Pull in the variables defined in /etc/os-release but in a
-# namespace to avoid polluting our variables.
-source <(cat /etc/os-release | sed s/^/OS_RELEASE_/)
-if [ "${OS_RELEASE_ID:-}" != "ubuntu" ] || [ "${OS_RELEASE_VERSION_ID:-}" != "22.04" ]; then
-	echo "S5 Mail only supports being installed on Ubuntu 22.04, sorry. You are running:"
+# Check that we are running on Debian 13. Pull in the variables in a
+# subshell so the installer does not retain unrelated os-release variables.
+OS_RELEASE_ID=""
+OS_RELEASE_VERSION_ID=""
+if [ -r /etc/os-release ]; then
+	read -r OS_RELEASE_ID OS_RELEASE_VERSION_ID < <(
+		. /etc/os-release
+		printf '%s %s\n' "${ID:-}" "${VERSION_ID:-}"
+	)
+fi
+if [ "$OS_RELEASE_ID" != "debian" ] || [ "$OS_RELEASE_VERSION_ID" != "13" ]; then
+	echo "S5 Mail only supports being installed on Debian 13, sorry. You are running:"
 	echo
 	echo "${OS_RELEASE_ID:-"Unknown linux distribution"} ${OS_RELEASE_VERSION_ID:-}"
 	echo
@@ -23,25 +29,17 @@ fi
 
 # Check that we have enough memory.
 #
-# /proc/meminfo reports free memory in kibibytes. Our baseline will be 512 MB,
-# which is 500000 kibibytes.
-#
-# We will display a warning if the memory is below 768 MB which is 750000 kibibytes
+# /proc/meminfo reports total memory in kibibytes. Debian 13's supported small
+# profile requires one GB of RAM; setup/system.sh adds a one GB swapfile when
+# appropriate.
 #
 # Skip the check if we appear to be running inside of Vagrant, because that's really just for testing.
 TOTAL_PHYSICAL_MEM=$(head -n 1 /proc/meminfo | awk '{print $2}')
-if [ "$TOTAL_PHYSICAL_MEM" -lt 490000 ]; then
-if [ ! -d /vagrant ]; then
-	TOTAL_PHYSICAL_MEM=$(( TOTAL_PHYSICAL_MEM * 1024 / 1000 / 1000 ))
-	echo "Your S5 Mail needs more memory (RAM) to function properly."
-	echo "Please provision a machine with at least 512 MB, 1 GB recommended."
-	echo "This machine has $TOTAL_PHYSICAL_MEM MB memory."
-	exit
-fi
-fi
-if [ "$TOTAL_PHYSICAL_MEM" -lt 750000 ]; then
-	echo "WARNING: Your S5 Mail has less than 768 MB of memory."
-	echo "         It might run unreliably when under heavy load."
+if [ "$TOTAL_PHYSICAL_MEM" -lt 950000 ] && [ ! -d /vagrant ]; then
+	TOTAL_PHYSICAL_MEM_MB=$(( TOTAL_PHYSICAL_MEM / 1024 ))
+	echo "Your S5 Mail needs at least 1 GB of memory (RAM) to function properly."
+	echo "This machine has ${TOTAL_PHYSICAL_MEM_MB} MiB memory."
+	exit 1
 fi
 
 # Check that tempfs is mounted with exec

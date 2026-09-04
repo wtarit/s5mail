@@ -15,9 +15,16 @@ source setup/functions.sh # load our functions
 echo "$PRIMARY_HOSTNAME" > /etc/hostname
 hostname "$PRIMARY_HOSTNAME"
 
+# Debian cloud images commonly retain the image hostname on the conventional
+# 127.0.1.1 entry. Keep the active appliance hostname locally resolvable before
+# DNS zones are generated so sudo and other local tools do not emit resolution
+# failures during the rest of setup.
+sed -i '/^127\.0\.1\.1[[:space:]]/d' /etc/hosts
+printf '127.0.1.1\t%s %s\n' "$PRIMARY_HOSTNAME" "${PRIMARY_HOSTNAME%%.*}" >> /etc/hosts
+
 # ### Fix permissions
 
-# The default Ubuntu Bionic image on Scaleway throws warnings during setup about incorrect
+# Some cloud images throw warnings during setup about incorrect
 # permissions (group writeable) set on the following directories.
 
 chmod g-w /etc /etc/default /usr
@@ -41,7 +48,7 @@ chmod g-w /etc /etc/default /usr
 # - Check the memory requirements
 # - Check available diskspace
 
-# See https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-ubuntu-14-04
+# See https://www.digitalocean.com/community/tutorials/how-to-add-swap/
 # for reference
 
 SWAP_MOUNTED=$(cat /proc/swaps | tail -n+2)
@@ -86,40 +93,18 @@ tools/editconf.py /etc/systemd/journald.conf MaxRetentionSec=10day
 # ### Improve server privacy
 
 # Disable MOTD adverts to prevent revealing server information in MOTD request headers
-# See https://ma.ttias.be/what-exactly-being-sent-ubuntu-motd/
 if [ -f /etc/default/motd-news ]; then
 tools/editconf.py /etc/default/motd-news ENABLED=0
 rm -f /var/cache/motd-news
 fi
 
-# ### Add PPAs.
-
-# We install some non-standard Ubuntu packages maintained by other
-# third-party providers. First ensure add-apt-repository is installed.
-
-if [ ! -f /usr/bin/add-apt-repository ]; then
-	echo "Installing add-apt-repository..."
-	hide_output apt-get update
-	apt_install software-properties-common
-fi
-
-# Ensure the universe repository is enabled since some of our packages
-# come from there and minimal Ubuntu installs may have it turned off.
-hide_output add-apt-repository -y universe
-
-# Ubuntu 22.04 provides PHP 8.1, but PHP 8.2 is supported across Nextcloud's
-# upgrade path from version 26 to currently maintained releases.
-hide_output add-apt-repository --y ppa:ondrej/php
-
 # ### Update Packages
 
-# Update system packages to make sure we have the latest upstream versions
-# of things from Ubuntu, as well as the directory of packages provide by the
-# PPAs so we can install those packages later.
-# --allow-releaseinfo-change is added because ppa:ondrej/php changed its Label.
+# Use only Debian 13's signed package archives. PHP 8.4 and all system
+# dependencies are available natively, so no PPA or extra component is needed.
 
 echo "Updating system packages..."
-hide_output apt-get update --allow-releaseinfo-change
+hide_output apt-get update
 apt_get_quiet upgrade
 
 # Old kernels pile up over time and take up a lot of disk space, and because of S5 Mail
@@ -134,7 +119,7 @@ apt_get_quiet autoremove
 #
 # * unattended-upgrades: Apt tool to install security updates automatically.
 # * cron: Runs background processes periodically.
-# * ntp: keeps the system time correct
+# * systemd-timesyncd: keeps the system time correct
 # * fail2ban: scans log files for repeated failed login attempts and blocks the remote IP at the firewall
 # * netcat-openbsd: `nc` command line networking tool
 # * git: we install some things directly from github
@@ -146,15 +131,11 @@ apt_get_quiet autoremove
 echo "Installing system packages..."
 apt_install netcat-openbsd wget curl git sudo coreutils bc file \
 	pollinate openssh-client unzip \
-	unattended-upgrades cron ntp fail2ban rsyslog
+	unattended-upgrades cron systemd-timesyncd fail2ban rsyslog
 
-# ### Suppress Upgrade Prompts
-# When Ubuntu 20 comes out, we don't want users to be prompted to upgrade,
-# because we don't yet support it.
-if [ -f /etc/update-manager/release-upgrades ]; then
-	tools/editconf.py /etc/update-manager/release-upgrades Prompt=never
-	rm -f /var/lib/ubuntu-release-upgrader/release-upgrade-available
-fi
+# Debian's native time synchronization service has a small memory footprint and
+# avoids running a second NTP daemon. Enabling it is safe to repeat.
+systemctl enable --now systemd-timesyncd.service
 
 # ### Set the system timezone
 #
@@ -196,7 +177,7 @@ fi
 # * TLS private key (see `ssl.sh`, which calls `openssl genrsa`)
 # * DNSSEC signing keys (see `dns.sh`)
 # * our management server's API key (via Python's os.urandom method)
-# * Roundcube's SECRET_KEY (`webmail.sh`)
+# * Nextcloud's generated instance and administrator secrets (`nextcloud.sh`)
 #
 # Why /dev/urandom? It's the same as /dev/random, except that it doesn't wait
 # for a constant new stream of entropy. In practice, we only need a little
@@ -237,8 +218,8 @@ echo "Initializing system random number generator..."
 dd if=/dev/random of=/dev/urandom bs=1 count=32 2> /dev/null
 
 # This is supposedly sufficient. But because we're not sure if hardware entropy
-# is really any good on virtualized systems, we'll also seed from Ubuntu's
-# pollinate servers:
+# is really any good on virtualized systems, we'll also seed from pollinate's
+# entropy service:
 
 pollinate  -q -r
 
@@ -330,7 +311,8 @@ fi #NODOC
 # DNS server, which won't work for RBLs. So we really need a local recursive
 # nameserver.
 #
-# We'll install `bind9`, which as packaged for Ubuntu, has DNSSEC enabled by default via "dnssec-validation auto".
+# We'll install `bind9`, which Debian packages with DNSSEC validation enabled
+# by default via "dnssec-validation auto".
 # We'll have it be bound to 127.0.0.1 so that it does not interfere with
 # the public, recursive nameserver `nsd` bound to the public ethernet interfaces.
 #
@@ -356,20 +338,23 @@ if ! grep -q "max-recursion-queries " /etc/bind/named.conf.options; then
 	sed -i "s/^}/\n\tmax-recursion-queries 100;\n}/" /etc/bind/named.conf.options
 fi
 
-# First we'll disable systemd-resolved's management of resolv.conf and its stub server.
-# Breaking the symlink to /run/systemd/resolve/stub-resolv.conf means
-# systemd-resolved will read it for DNS servers to use. Put in 127.0.0.1,
-# which is where bind9 will be running. Obviously don't do this before
-# installing bind9 or else apt won't be able to resolve a server to
-# download bind9 from.
+# Point local clients at bind9. Debian cloud images may use a static file,
+# systemd-resolved, or another resolver manager. Do not assume
+# systemd-resolved is installed or active: when it is active, disable only its
+# loopback stub so it cannot conflict with the local resolver. Replacing a
+# resolver-manager symlink with this static appliance setting is intentional.
+# Do this only after installing bind9 so apt remains able to resolve package
+# mirrors.
+if systemctl is-active --quiet systemd-resolved.service; then
+	tools/editconf.py /etc/systemd/resolved.conf DNSStubListener=no
+	systemctl restart systemd-resolved.service
+fi
 rm -f /etc/resolv.conf
-tools/editconf.py /etc/systemd/resolved.conf DNSStubListener=no
 echo "nameserver 127.0.0.1" > /etc/resolv.conf
 
 # Restart the DNS services.
 
 restart_service bind9
-systemctl restart systemd-resolved
 
 # ### Fail2Ban Service
 
@@ -392,11 +377,8 @@ cat conf/fail2ban/jails.conf \
 	> /etc/fail2ban/jail.d/s5mail.conf
 cp -f conf/fail2ban/filter.d/* /etc/fail2ban/filter.d/
 
-# On first installation, the log files that the jails look at don't all exist.
-# e.g., The roundcube error log isn't normally created until someone logs into
-# Roundcube for the first time. This causes fail2ban to fail to start. Later
-# scripts will ensure the files exist and then fail2ban is given another
-# restart at the very end of setup.
+# Some jail log files are created by later setup steps, so fail2ban is restarted
+# again after all managed services have been configured.
 restart_service fail2ban
 
 systemctl enable fail2ban

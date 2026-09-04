@@ -11,6 +11,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/2.0.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- Removed POP3/POP3S support. Mail clients must use IMAP over TLS on port 993
+  for incoming mail.
+
 ## [2026.08.2] - 2026-08-15
 
 ### Fixed
